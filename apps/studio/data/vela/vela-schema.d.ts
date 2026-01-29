@@ -19003,7 +19003,7 @@ export interface components {
          * BranchServiceStatus
          * @enum {string}
          */
-        BranchServiceStatus: "ACTIVE_HEALTHY" | "STOPPED" | "STARTING" | "ACTIVE_UNHEALTHY" | "CREATING" | "DELETING" | "UPDATING" | "RESTARTING" | "STOPPING" | "PAUSING" | "PAUSED" | "RESUMING" | "UNKNOWN" | "ERROR";
+        BranchServiceStatus: "ACTIVE_HEALTHY" | "STOPPED" | "STARTING" | "ACTIVE_UNHEALTHY" | "CREATING" | "DELETING" | "UPDATING" | "RESTARTING" | "STOPPING" | "PAUSING" | "PAUSED" | "RESUMING" | "UNKNOWN" | "ERROR" | "RESIZING";
         /** BranchSourceDeploymentParameters */
         BranchSourceDeploymentParameters: {
             /** Database Password */

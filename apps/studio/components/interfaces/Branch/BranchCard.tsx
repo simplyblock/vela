@@ -19,6 +19,7 @@ const TRANSITIONAL_STATUSES = [
   'UPDATING',
   'RESTARTING',
   'STOPPING',
+  'RESIZING',
 ]
 const ERROR_STATUSES = ['ERROR']
 
@@ -115,7 +116,9 @@ export const BranchCard = ({
     )
   }
 
-  const openAllowed = isStatusActive(status)
+  const openAllowed = 
+  isStatusActive(status) 
+  && branch.status !== 'RESIZING' 
 
   return (
     <li

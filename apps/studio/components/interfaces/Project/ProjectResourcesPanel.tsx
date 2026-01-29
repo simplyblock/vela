@@ -26,7 +26,6 @@ type ProjectUsageShape = {
 
 /**
  * Panel that shows project-wide limits (max_total) + current usage (project usage)
- * Uses lib/resource-utils for dividing/formatting so logic is shared across components.
  */
 export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
   const { data: limitsArr, isLoading: loadingLimits } = useProjectLimitsQuery(

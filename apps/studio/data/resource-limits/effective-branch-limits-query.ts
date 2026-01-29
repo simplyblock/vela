@@ -39,7 +39,7 @@ async function getEffectiveBranchLimits(
 export type EffectiveBranchLimitsData = Awaited<ReturnType<typeof getEffectiveBranchLimits>>
 export type EffectiveBranchLimitsError = ResponseError
 
-export const useProjectLimitsQuery = <TData = EffectiveBranchLimitsData>(
+export const useEffectiveBranchLimitsQuery = <TData = EffectiveBranchLimitsData>(
   { orgRef, projectRef, branchRef }: EffectiveBranchLimitsVariables,
   {
     enabled = true,

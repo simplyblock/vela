@@ -22,6 +22,7 @@ import {
   ResourceType,
 } from 'data/resource-limits/branch-slider-resource-limits'
 import { useBranchResizeMutation } from 'data/branches/branch-resize-mutation'
+import { useEffectiveBranchLimitsQuery } from 'data/resource-limits/effective-branch-limits-query'
 
 type BranchMaxResources = {
   milli_vcpu: number
@@ -53,7 +54,8 @@ type FormValues = {
  * BranchResizeModal (uses branchMax prop)
  *
  * - slider specs from useBranchSliderResourceLimits(orgSlug, projectRef)
- * - current values read from branchMax prop (no internal effective-limits query)
+ * - effective limits from useEffectiveBranchLimitsQuery
+ * - current values read from branchMax prop
  * - displays current vs new values and submits changed API params
  */
 export const BranchResizeModal: React.FC<Props> = ({
@@ -66,6 +68,11 @@ export const BranchResizeModal: React.FC<Props> = ({
   isDisabled
 }) => {
   const [open, setOpen] = useState(false)
+  const { data: effectiveBranchLimits } = useEffectiveBranchLimitsQuery({
+    orgRef: orgSlug,
+    projectRef,
+    branchRef: branchId
+  })
 
   // slider specs (merged system + project limits)
   const { isLoading: specsLoading, data: specs } = useBranchSliderResourceLimits(
@@ -117,38 +124,98 @@ export const BranchResizeModal: React.FC<Props> = ({
   }
 
   /**
+   * Get effective maximum for slider by taking the minimum between:
+   * 1. The spec's max value
+   * 2. The effective branch limit (if available)
+   */
+  const getEffectiveMax = (rk: ResourceType, s: SliderSpecification): number => {
+    let maxFromSpec = s.max
+    
+    // Get the effective branch limit for this resource type
+    let effectiveLimitDisplay: number | null = null
+    
+    switch (rk) {
+      case 'milli_vcpu':
+        if (effectiveBranchLimits?.milli_vcpu != null) {
+          effectiveLimitDisplay = (effectiveBranchLimits.milli_vcpu - branchMax.milli_vcpu) / s.divider
+        }
+        break
+      case 'ram':
+        if (effectiveBranchLimits?.ram != null) {
+          effectiveLimitDisplay = (effectiveBranchLimits.ram - branchMax.ram_bytes) / s.divider
+        }
+        break
+      case 'iops':
+        if (effectiveBranchLimits?.iops != null) {
+          effectiveLimitDisplay = (effectiveBranchLimits.iops - branchMax.iops) / s.divider
+        }
+        break
+      case 'database_size':
+        if (effectiveBranchLimits?.database_size != null) {
+          effectiveLimitDisplay = (effectiveBranchLimits.database_size - branchMax.nvme_bytes) / s.divider
+        }
+        break
+      case 'storage_size':
+        if (effectiveBranchLimits?.storage_size != null && branchMax.storage_bytes != null) {
+          effectiveLimitDisplay = (effectiveBranchLimits.storage_size - branchMax.storage_bytes) / s.divider
+        }
+        break
+    }
+
+    // If we have an effective limit, take the minimum between spec max and effective limit
+    if (effectiveLimitDisplay != null) {
+      return Math.min(maxFromSpec, effectiveLimitDisplay)
+    }
+
+    
+    
+    // Otherwise just use the spec max
+    return maxFromSpec
+  }
+
+  /**
    * Effective minimum per resource type, applying downsizing rules:
    *
-   * - milli_vcpu: can downsize to spec.min
-   * - iops:       can downsize to spec.min
-   * - ram:        can downsize to max(spec.min, ramUsage + 20%)
-   * - database_size: cannot downsize -> min = current
-   * - storage_size:  cannot downsize -> min = current (only if we have storage)
+   * - milli_vcpu: can downsize to spec.min (capped by effective max)
+   * - iops:       can downsize to spec.min (capped by effective max)
+   * - ram:        can downsize to max(spec.min, ramUsage + 20%) (capped by effective max)
+   * - database_size: cannot downsize -> min = current (capped by effective max)
+   * - storage_size:  cannot downsize -> min = current (only if we have storage) (capped by effective max)
    */
   const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
+    const effectiveMax = getEffectiveMax(rk, s)
+    
+    let minValue: number
+    
     switch (rk) {
       case 'ram': {
         const usageBytes = ramUsageBytes ?? 0
         const usageDisplay = usageBytes / s.divider
         const lowerBound = usageDisplay * 1.2
-        return Math.min(s.max, Math.max(s.min, lowerBound))
+        minValue = Math.max(s.min, lowerBound)
+        break
       }
       case 'database_size': {
         const currentDisplay = apiToDisplay('database_size', branchMax?.nvme_bytes ?? null)
-        if (currentDisplay == null) return s.min
-        return Math.min(s.max, Math.max(s.min, currentDisplay))
+        if (currentDisplay == null) minValue = s.min
+        else minValue = Math.max(s.min, currentDisplay)
+        break
       }
       case 'storage_size': {
         const currentDisplay = apiToDisplay('storage_size', branchMax?.storage_bytes ?? null)
-        if (currentDisplay == null) return s.min
-        return Math.min(s.max, Math.max(s.min, currentDisplay))
+        if (currentDisplay == null) minValue = s.min
+        else minValue = Math.max(s.min, currentDisplay)
+        break
       }
       // milli_vcpu and iops can go all the way down to spec.min
       case 'milli_vcpu':
       case 'iops':
       default:
-        return s.min
+        minValue = s.min
     }
+    
+    // Ensure min doesn't exceed max
+    return Math.min(effectiveMax, minValue)
   }
 
   // handy RAM info for the explanation card
@@ -157,12 +224,14 @@ export const BranchResizeModal: React.FC<Props> = ({
     if (!s) return null
     const usageDisplay = ramUsageBytes ? ramUsageBytes / s.divider : undefined
     const minDisplay = getEffectiveMin('ram', s)
+    const maxDisplay = getEffectiveMax('ram', s)
     return {
       usageDisplay,
       minDisplay,
+      maxDisplay,
       unit: s.unit,
     }
-  }, [sliderSpecs, ramUsageBytes])
+  }, [sliderSpecs, ramUsageBytes, effectiveBranchLimits])
 
   // initialize form values when modal opens (use branchMax when available, else spec.initial / effectiveMin)
   useEffect(() => {
@@ -176,6 +245,7 @@ export const BranchResizeModal: React.FC<Props> = ({
       if (!s) return 0
 
       const effectiveMin = getEffectiveMin(rk, s)
+      const effectiveMax = getEffectiveMax(rk, s)
 
       let apiCurrent: number | null = null
       switch (rk) {
@@ -198,12 +268,14 @@ export const BranchResizeModal: React.FC<Props> = ({
 
       if (apiCurrent != null) {
         const displayVal = apiCurrent / s.divider
-        return Math.min(s.max, Math.max(effectiveMin, displayVal))
+        // Clamp between effective min and max
+        return Math.min(effectiveMax, Math.max(effectiveMin, displayVal))
       }
 
       if (typeof s.initial === 'number') {
         const displayVal = s.initial
-        return Math.min(s.max, Math.max(effectiveMin, displayVal))
+        // Clamp between effective min and max
+        return Math.min(effectiveMax, Math.max(effectiveMin, displayVal))
       }
 
       return effectiveMin
@@ -219,7 +291,7 @@ export const BranchResizeModal: React.FC<Props> = ({
 
     reset(initial as FormValues)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, specs, branchMax, ramUsageBytes, hasStorage])
+  }, [open, specs, branchMax, ramUsageBytes, hasStorage, effectiveBranchLimits])
 
   // build parameters: convert display -> API units using spec.divider, compare to branchMax and include only diffs
   const buildParameters = () => {
@@ -310,6 +382,10 @@ export const BranchResizeModal: React.FC<Props> = ({
 
     const value = watch(rk as keyof FormValues) as number
     const effectiveMin = getEffectiveMin(rk, s)
+    const effectiveMax = getEffectiveMax(rk, s)
+
+    // Check if effective max is different from spec max (meaning effective limits are applied)
+    const isLimitedByEffective = effectiveMax < s.max
 
     return (
       <div key={rk} className="space-y-2">
@@ -333,6 +409,11 @@ export const BranchResizeModal: React.FC<Props> = ({
             <div className="text-[10px] text-foreground-muted font-mono">
               Min allowed: {effectiveMin} {s.unit}
             </div>
+            {isLimitedByEffective && (
+              <div className="text-[10px] text-warning font-mono">
+                Max limited: {effectiveMax} {s.unit}
+              </div>
+            )}
           </div>
         </div>
 
@@ -341,7 +422,7 @@ export const BranchResizeModal: React.FC<Props> = ({
         <Slider_Shadcn_
           id={`resize-${rk}`}
           min={effectiveMin}
-          max={s.max}
+          max={effectiveMax}
           step={s.step}
           value={[value]}
           onValueChange={(v) => {
@@ -395,6 +476,11 @@ export const BranchResizeModal: React.FC<Props> = ({
                       Database size
                       {hasStorage && ' and file storage size'} can only be increased, not decreased.
                     </li>
+                    {effectiveBranchLimits && (
+                      <li className="text-warning">
+                        Some limits may be restricted by organizational or project quotas. (highlighted by this color)
+                      </li>
+                    )}
                   </ul>
                   {ramInfo && (
                     <div className="mt-2 text-xs text-foreground-muted font-mono space-y-1">
@@ -404,7 +490,7 @@ export const BranchResizeModal: React.FC<Props> = ({
                         </div>
                       )}
                       <div>
-                        Minimum allowed RAM after resize: {ramInfo.minDisplay} {ramInfo.unit}
+                        Allowed RAM range: {ramInfo.minDisplay} - {ramInfo.maxDisplay} {ramInfo.unit}
                       </div>
                     </div>
                   )}

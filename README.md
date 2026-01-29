@@ -71,6 +71,7 @@ Vela consists of a number of Simplyblock-managed open-source components:
 - [Vela Studio](https://github.com/simplyblock/vela): The web interface for managing organizations, projects, branches.
 - [Vela Controller](https://github.com/simplyblock/vela-controller): The orchestrator component which manages the lifecycle of databases and functions.
 - [Vela OS](https://github.com/simplyblock/vela-os): The operating system component which is used in the branch virtual machines, running the branch services.
+- [Vela Documentation](https://github.com/simplyblock/vela-docs): The Vela documentation, featured at [https://docs.vela.run](https://docs.vela.run).
 - [Autoscaling](https://github.com/simplyblock/autoscaling): The Vela fork of Neon's autoscaling component which managed Qemu virtual machines in Kubernetes.
 
 ---

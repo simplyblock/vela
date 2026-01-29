@@ -117,7 +117,7 @@ export const BranchCard = ({
 
   const openAllowed = 
   isStatusActive(status) 
-  // && branch.status !== 'RESIZING' // TODO: uncomment this after we have RESIZING status on type of Branch 
+  && branch.status !== 'RESIZING' 
 
   return (
     <li

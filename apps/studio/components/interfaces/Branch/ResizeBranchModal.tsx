@@ -173,50 +173,62 @@ export const BranchResizeModal: React.FC<Props> = ({
     return maxFromSpec
   }
 
-  /**
-   * Effective minimum per resource type, applying downsizing rules:
-   *
-   * - milli_vcpu: can downsize to spec.min (capped by effective max)
-   * - iops:       can downsize to spec.min (capped by effective max)
-   * - ram:        can downsize to max(spec.min, ramUsage + 20%) (capped by effective max)
-   * - database_size: cannot downsize -> min = current (capped by effective max)
-   * - storage_size:  cannot downsize -> min = current (only if we have storage) (capped by effective max)
-   */
-  const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
-    const effectiveMax = getEffectiveMax(rk, s)
-    
-    let minValue: number
-    
-    switch (rk) {
-      case 'ram': {
-        const usageBytes = ramUsageBytes ?? 0
-        const usageDisplay = usageBytes / s.divider
-        const lowerBound = usageDisplay * 1.2
-        minValue = Math.max(s.min, lowerBound)
-        break
-      }
-      case 'database_size': {
-        const currentDisplay = apiToDisplay('database_size', branchMax?.nvme_bytes ?? null)
-        if (currentDisplay == null) minValue = s.min
-        else minValue = Math.max(s.min, currentDisplay)
-        break
-      }
-      case 'storage_size': {
-        const currentDisplay = apiToDisplay('storage_size', branchMax?.storage_bytes ?? null)
-        if (currentDisplay == null) minValue = s.min
-        else minValue = Math.max(s.min, currentDisplay)
-        break
-      }
-      // milli_vcpu and iops can go all the way down to spec.min
-      case 'milli_vcpu':
-      case 'iops':
-      default:
-        minValue = s.min
+/**
+ * Effective minimum per resource type, applying downsizing rules:
+ *
+ * - milli_vcpu: can downsize to spec.min (capped by effective max)
+ * - iops:       can downsize to spec.min (capped by effective max)
+ * - ram:        can downsize to max(spec.min, ramUsage + 20%) (capped by effective max)
+ *   IMPORTANT: RAM value must be rounded up to nearest multiple of 128 MiB (134217728 bytes)
+ * - database_size: cannot downsize -> min = current (capped by effective max)
+ * - storage_size:  cannot downsize -> current (only if we have storage) (capped by effective max)
+ */
+const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
+  const effectiveMax = getEffectiveMax(rk, s)
+  
+  let minValue: number
+  
+  switch (rk) {
+    case 'ram': {
+      const usageBytes = ramUsageBytes ?? 0
+      const usageDisplay = usageBytes / s.divider
+      const lowerBound = usageDisplay * 1.2
+      minValue = Math.max(s.min, lowerBound)
+      
+      // Convert display value back to bytes to check/round to required multiple
+      const minBytes = minValue * s.divider
+      const multiple = 134217728 // 128 MiB in bytes
+      
+      // Round up to the nearest multiple
+      const roundedBytes = Math.ceil(minBytes / multiple) * multiple
+      const roundedDisplay = roundedBytes / s.divider
+      
+      // Use the rounded value, ensuring it's still at least the calculated minimum
+      minValue = Math.max(minValue, roundedDisplay)
+      break
     }
-    
-    // Ensure min doesn't exceed max
-    return Math.min(effectiveMax, minValue)
+    case 'database_size': {
+      const currentDisplay = apiToDisplay('database_size', branchMax?.nvme_bytes ?? null)
+      if (currentDisplay == null) minValue = s.min
+      else minValue = Math.max(s.min, currentDisplay)
+      break
+    }
+    case 'storage_size': {
+      const currentDisplay = apiToDisplay('storage_size', branchMax?.storage_bytes ?? null)
+      if (currentDisplay == null) minValue = s.min
+      else minValue = Math.max(s.min, currentDisplay)
+      break
+    }
+    // milli_vcpu and iops can go all the way down to spec.min
+    case 'milli_vcpu':
+    case 'iops':
+    default:
+      minValue = s.min
   }
+  
+  // Ensure min doesn't exceed max
+  return Math.min(effectiveMax, minValue)
+}
 
   // handy RAM info for the explanation card
   const ramInfo = useMemo(() => {

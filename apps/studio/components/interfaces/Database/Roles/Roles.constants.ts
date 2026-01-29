@@ -16,6 +16,7 @@ export const SUPABASE_ROLES = [
   'pgsodium_keyiduser',
   'pgsodium_keymaker',
   'pgtle_admin',
+  'vela',
 ] as const
 
 // [Joshen] This was originally in the Roles mobx store

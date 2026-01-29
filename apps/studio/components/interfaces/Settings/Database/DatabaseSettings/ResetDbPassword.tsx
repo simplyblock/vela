@@ -13,6 +13,8 @@ import passwordStrength from 'lib/password-strength'
 import { generateStrongPassword } from 'lib/project'
 import { Button, Input, Modal } from 'ui'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
+import { SpecialSymbolsCallout } from '../../../ProjectCreation/SpecialSymbolsCallout'
+import { SPECIAL_CHARS_REGEX } from '../../../ProjectCreation/ProjectCreation.constants'
 
 const ResetDbPassword = ({ disabled = false }) => {
   const { slug, ref, branch } = useParams()
@@ -25,6 +27,7 @@ const ResetDbPassword = ({ disabled = false }) => {
   const [passwordStrengthMessage, setPasswordStrengthMessage] = useState<string>('')
   const [passwordStrengthWarning, setPasswordStrengthWarning] = useState<string>('')
   const [passwordStrengthScore, setPasswordStrengthScore] = useState<number>(0)
+  const [hasSpecialCharacters, setHasSpecialCharacters] = useState<boolean>(false)
 
   const { mutate: resetDatabasePassword, isLoading: isUpdatingPassword } =
     useDatabasePasswordResetMutation({
@@ -40,6 +43,7 @@ const ResetDbPassword = ({ disabled = false }) => {
       setPasswordStrengthMessage('')
       setPasswordStrengthWarning('')
       setPasswordStrengthScore(0)
+      setHasSpecialCharacters(false)
     }
   }, [showResetDbPass])
 
@@ -50,8 +54,11 @@ const ResetDbPassword = ({ disabled = false }) => {
     setPasswordStrengthMessage(message)
   }
 
-  const delayedCheckPasswordStrength = useRef(
-    debounce((value) => checkPasswordStrength(value), 300)
+  const delayedCheckPassword = useRef(
+    debounce(async (value) => {
+      await checkPasswordStrength(value)
+      setHasSpecialCharacters(value.length > 0 && !value.match(SPECIAL_CHARS_REGEX))
+    }, 300)
   ).current
 
   const onDbPassChange = (e: any) => {
@@ -60,7 +67,7 @@ const ResetDbPassword = ({ disabled = false }) => {
     if (value == '') {
       setPasswordStrengthScore(-1)
       setPasswordStrengthMessage('')
-    } else delayedCheckPasswordStrength(value)
+    } else delayedCheckPassword(value)
   }
 
   const confirmResetDbPass = async () => {
@@ -76,7 +83,7 @@ const ResetDbPassword = ({ disabled = false }) => {
   function generatePassword() {
     const password = generateStrongPassword()
     setPassword(password)
-    delayedCheckPasswordStrength(password)
+    delayedCheckPassword(password)
   }
 
   return (
@@ -125,6 +132,7 @@ const ResetDbPassword = ({ disabled = false }) => {
         onCancel={() => setShowResetDbPass(false)}
       >
         <Modal.Content className="w-full space-y-8">
+          {hasSpecialCharacters && <SpecialSymbolsCallout />}
           <Input
             type="password"
             value={password}

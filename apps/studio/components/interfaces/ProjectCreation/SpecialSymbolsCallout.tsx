@@ -4,8 +4,8 @@ export const SpecialSymbolsCallout = () => {
   return (
     <p className="mb-2">
       Note: If using the Postgres connection string, you will need to{' '}
-      <InlineLink href="https://vela.run/docs/guides/database/postgres/roles#special-symbols-in-passwords">
-        percent-encode
+      <InlineLink href="https://docs.vela.run/latest/operations/pg-roles-users/#special-symbols-in-passwords">
+        url encode
       </InlineLink>{' '}
       the password
     </p>

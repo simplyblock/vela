@@ -1,10 +1,11 @@
-import { useResourceLimitDefinitionsQuery } from 'data/resource-limits/resource-limit-definitions-query'
-import { ProjectLimitsData, useProjectLimitsQuery } from 'data/resources/project-limits-query'
+import { ProjectLimitsData, useProjectLimitsQuery } from 'data/resource-limits/project-limits-query'
 import { ArrayElement } from 'types'
 import { components } from '../vela/vela-schema'
 import { Branch } from '../branches/branch-query'
 import { useParams } from 'common'
 import { useMemo } from 'react'
+import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
+import { useResourceLimitDefinitionsQuery } from './resource-limit-definitions-query'
 
 export interface SliderSpecification {
   label: string
@@ -183,9 +184,26 @@ export function useBranchSliderResourceLimits(
   const { slug, ref } = useParams()
 
   const { data: systemDefinitions, isLoading: systemDefinitionsLoading } =
-    useResourceLimitDefinitionsQuery({
-      orgId: orgSlug || slug,
-    })
+    useResourceLimitDefinitionsQuery()
+
+  const { data: orgDefinitions, isLoading: orgDefinitionsLoading } = useOrganizationLimitsQuery({
+    orgRef: orgSlug || slug,
+  })
+
+  const normalizedOrgDefinitions = useMemo(
+    () =>
+      orgDefinitions?.map((definition) => {
+        const systemLimit = selectSystemResourceType(definition.resource, systemDefinitions)
+        return {
+          min: systemLimit?.min ?? 0,
+          max: definition.max_per_branch,
+          step: systemLimit?.step ?? 1,
+          resource_type: definition.resource,
+          unit: systemLimit?.unit ?? '',
+        } as ResourceLimit
+      }) ?? ([] as ResourceLimit[]),
+    [orgDefinitions, systemDefinitions]
+  )
 
   const { data: projectLimits, isLoading: projectLimitsLoading } = useProjectLimitsQuery({
     orgRef: orgSlug || slug,
@@ -193,13 +211,13 @@ export function useBranchSliderResourceLimits(
   })
 
   const limits = useMemo(() => {
-    if (systemDefinitionsLoading || projectLimitsLoading) return undefined
+    if (orgDefinitionsLoading || projectLimitsLoading || systemDefinitionsLoading) return undefined
 
-    const vcpu = vcpuLimit(projectLimits, systemDefinitions, source)
-    const memory = memoryLimit(projectLimits, systemDefinitions, source)
-    const iops = iopsLimit(projectLimits, systemDefinitions, source)
-    const databaseSize = databaseSizeLimit(projectLimits, systemDefinitions, source)
-    const storageSize = storageSizeLimit(projectLimits, systemDefinitions, source)
+    const vcpu = vcpuLimit(projectLimits, normalizedOrgDefinitions, source)
+    const memory = memoryLimit(projectLimits, normalizedOrgDefinitions, source)
+    const iops = iopsLimit(projectLimits, normalizedOrgDefinitions, source)
+    const databaseSize = databaseSizeLimit(projectLimits, normalizedOrgDefinitions, source)
+    const storageSize = storageSizeLimit(projectLimits, normalizedOrgDefinitions, source)
 
     return {
       milli_vcpu: {
@@ -234,7 +252,7 @@ export function useBranchSliderResourceLimits(
   ])
 
   return {
-    isLoading: systemDefinitionsLoading || projectLimitsLoading,
+    isLoading: systemDefinitionsLoading || projectLimitsLoading || orgDefinitionsLoading,
     data: limits,
   }
 }

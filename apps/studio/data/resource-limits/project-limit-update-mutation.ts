@@ -2,7 +2,7 @@ import { components } from '../vela/vela-schema'
 import { handleError, post } from '../fetchers'
 import { ResponseError } from '../../types'
 import { useMutation, UseMutationOptions, useQueryClient } from '@tanstack/react-query'
-import { resourcesKeys } from './keys'
+import { resourceLimitsKeys } from './keys'
 import { toast } from 'sonner'
 
 interface ProjectLimitUpdateVariables {
@@ -49,7 +49,7 @@ export const useProjectLimitUpdateMutation = ({
     {
       async onSuccess(data, variables, context) {
         await queryClient.invalidateQueries(
-          resourcesKeys.projectLimits(variables.orgRef, variables.projectRef)
+          resourceLimitsKeys.projectLimits(variables.orgRef, variables.projectRef)
         )
         await onSuccess?.(data, variables, context)
       },

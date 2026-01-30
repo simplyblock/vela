@@ -1,6 +1,6 @@
 // components/OrganizationResourcesPanel.tsx
 import React, { useMemo, useState } from 'react'
-import { useOrganizationLimitsQuery } from 'data/resources/organization-limits-query'
+import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
 import { useOrganizationUsageQuery } from 'data/resources/organization-usage-query'
 import { cn } from 'ui'
 import { divideValue, formatResource } from '../Project/utils'

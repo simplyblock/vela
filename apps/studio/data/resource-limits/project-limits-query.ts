@@ -6,7 +6,7 @@ import {
   UseQueryOptions,
 } from '@tanstack/react-query'
 import { ResponseError } from '../../types'
-import { resourcesKeys } from './keys'
+import { resourceLimitsKeys } from './keys'
 
 interface ProjectLimitsVariables {
   orgRef?: string
@@ -50,7 +50,7 @@ export const useProjectLimitsQuery = <TData = ProjectLimitsData>(
   return useQuery<ProjectLimitsData, ProjectLimitsError, TData>({
     ...options,
     staleTime: 60_000,
-    queryKey: resourcesKeys.projectLimits(orgRef, projectRef),
+    queryKey: resourceLimitsKeys.projectLimits(orgRef, projectRef),
     queryFn: async (context: QueryFunctionContext) =>
       getProjectLimits({ orgRef, projectRef }, context.signal),
     enabled: enabled && typeof orgRef !== 'undefined' && typeof projectRef !== 'undefined',

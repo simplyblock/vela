@@ -137,27 +137,27 @@ export const BranchResizeModal: React.FC<Props> = ({
     switch (rk) {
       case 'milli_vcpu':
         if (effectiveBranchLimits?.milli_vcpu != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.milli_vcpu - branchMax.milli_vcpu) / s.divider
+          effectiveLimitDisplay = (effectiveBranchLimits.milli_vcpu + branchMax.milli_vcpu) / s.divider
         }
         break
       case 'ram':
         if (effectiveBranchLimits?.ram != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.ram - branchMax.ram_bytes) / s.divider
+          effectiveLimitDisplay = (effectiveBranchLimits.ram + branchMax.ram_bytes) / s.divider
         }
         break
       case 'iops':
         if (effectiveBranchLimits?.iops != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.iops - branchMax.iops) / s.divider
+          effectiveLimitDisplay = (effectiveBranchLimits.iops + branchMax.iops) / s.divider
         }
         break
       case 'database_size':
         if (effectiveBranchLimits?.database_size != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.database_size - branchMax.nvme_bytes) / s.divider
+          effectiveLimitDisplay = (effectiveBranchLimits.database_size + branchMax.nvme_bytes) / s.divider
         }
         break
       case 'storage_size':
         if (effectiveBranchLimits?.storage_size != null && branchMax.storage_bytes != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.storage_size - branchMax.storage_bytes) / s.divider
+          effectiveLimitDisplay = (effectiveBranchLimits.storage_size + branchMax.storage_bytes) / s.divider
         }
         break
     }
@@ -179,7 +179,7 @@ export const BranchResizeModal: React.FC<Props> = ({
  * - milli_vcpu: can downsize to spec.min (capped by effective max)
  * - iops:       can downsize to spec.min (capped by effective max)
  * - ram:        can downsize to max(spec.min, ramUsage + 20%) (capped by effective max)
- *   IMPORTANT: RAM value must be rounded up to nearest multiple of 128 MiB (134217728 bytes)
+ *   RAM value is snapped to the next slider step after applying the 20% rule
  * - database_size: cannot downsize -> min = current (capped by effective max)
  * - storage_size:  cannot downsize -> current (only if we have storage) (capped by effective max)
  */
@@ -193,18 +193,13 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
       const usageBytes = ramUsageBytes ?? 0
       const usageDisplay = usageBytes / s.divider
       const lowerBound = usageDisplay * 1.2
-      minValue = Math.max(s.min, lowerBound)
       
-      // Convert display value back to bytes to check/round to required multiple
-      const minBytes = minValue * s.divider
-      const multiple = 134217728 // 128 MiB in bytes
+      // Calculate minimum based on step increments
+      const stepAdjustedMin = Math.max(s.min, lowerBound)
       
-      // Round up to the nearest multiple
-      const roundedBytes = Math.ceil(minBytes / multiple) * multiple
-      const roundedDisplay = roundedBytes / s.divider
-      
-      // Use the rounded value, ensuring it's still at least the calculated minimum
-      minValue = Math.max(minValue, roundedDisplay)
+      // Snap to the next step above the 20% threshold
+      const stepsFromMin = Math.ceil((stepAdjustedMin - s.min) / s.step)
+      minValue = s.min + (stepsFromMin * s.step)
       break
     }
     case 'database_size': {
@@ -280,14 +275,18 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
 
       if (apiCurrent != null) {
         const displayVal = apiCurrent / s.divider
-        // Clamp between effective min and max
-        return Math.min(effectiveMax, Math.max(effectiveMin, displayVal))
+        // Clamp between effective min and max, and snap to nearest step
+        const clamped = Math.min(effectiveMax, Math.max(effectiveMin, displayVal))
+        const stepsFromMin = Math.round((clamped - s.min) / s.step)
+        return s.min + (stepsFromMin * s.step)
       }
 
       if (typeof s.initial === 'number') {
         const displayVal = s.initial
-        // Clamp between effective min and max
-        return Math.min(effectiveMax, Math.max(effectiveMin, displayVal))
+        // Clamp between effective min and max, and snap to nearest step
+        const clamped = Math.min(effectiveMax, Math.max(effectiveMin, displayVal))
+        const stepsFromMin = Math.round((clamped - s.min) / s.step)
+        return s.min + (stepsFromMin * s.step)
       }
 
       return effectiveMin
@@ -439,7 +438,10 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
           value={[value]}
           onValueChange={(v) => {
             const [next] = v
-            setValue(rk as keyof FormValues, next, {
+            // Ensure the value snaps to valid steps
+            const stepsFromMin = Math.round((next - s.min) / s.step)
+            const steppedValue = s.min + (stepsFromMin * s.step)
+            setValue(rk as keyof FormValues, steppedValue, {
               shouldDirty: true,
               shouldValidate: false,
             })

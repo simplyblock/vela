@@ -175,7 +175,9 @@ const ResourceLimit: NextPageWithLayout = () => {
     projectRef
   )
 
-  const { data: definitions, isLoading: defsLoading } = useResourceLimitDefinitionsQuery()
+  const { data: definitions, isLoading: defsLoading } = useResourceLimitDefinitionsQuery({
+    orgId: orgRef,
+  })
 
   const { mutateAsync: updateLimit, isLoading: isSaving } = useProjectLimitUpdateMutation()
 

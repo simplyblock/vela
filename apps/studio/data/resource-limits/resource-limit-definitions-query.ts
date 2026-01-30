@@ -3,7 +3,14 @@ import { ResponseError } from '../../types'
 import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 import { resourceLimitsKeys } from './keys'
 
-async function getResourceLimitDefinitions(signal?: AbortSignal) {
+export interface ResourceLimitDefinitionVariables {
+  orgId?: string
+}
+
+async function getResourceLimitDefinitions(
+  { orgId }: ResourceLimitDefinitionVariables,
+  signal?: AbortSignal
+) {
   const { data, error } = await get('/platform/resource-limits', { signal })
   if (error) handleError(error)
   return data
@@ -15,6 +22,7 @@ export type AvailableResourceLimitDefinitionsData = Awaited<
 export type AvailableResourceLimitDefinitionsError = ResponseError
 
 export const useResourceLimitDefinitionsQuery = <TData = AvailableResourceLimitDefinitionsData>(
+  { orgId }: ResourceLimitDefinitionVariables,
   options: UseQueryOptions<
     AvailableResourceLimitDefinitionsData,
     AvailableResourceLimitDefinitionsError,
@@ -22,8 +30,8 @@ export const useResourceLimitDefinitionsQuery = <TData = AvailableResourceLimitD
   > = {}
 ) =>
   useQuery<AvailableResourceLimitDefinitionsData, AvailableResourceLimitDefinitionsError, TData>(
-    resourceLimitsKeys.system_resource_limits(),
-    ({ signal }) => getResourceLimitDefinitions(signal),
+    resourceLimitsKeys.resource_limits(orgId),
+    ({ signal }) => getResourceLimitDefinitions({ orgId }, signal),
     {
       ...options,
       staleTime: Infinity,

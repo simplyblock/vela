@@ -203,7 +203,9 @@ const CreateProjectPage: NextPageWithLayout = () => {
   const canCreateProject = isAdmin
 
   // Dynamic limit definitions
-  const { data: limitDefinitions } = useResourceLimitDefinitionsQuery()
+  const { data: limitDefinitions } = useResourceLimitDefinitionsQuery({
+    orgId: slug,
+  })
 
   // Build dynamic limitConfig from API
   const limitConfig: LimitMap | null = useMemo(() => {

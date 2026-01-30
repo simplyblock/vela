@@ -183,7 +183,9 @@ export function useBranchSliderResourceLimits(
   const { slug, ref } = useParams()
 
   const { data: systemDefinitions, isLoading: systemDefinitionsLoading } =
-    useResourceLimitDefinitionsQuery()
+    useResourceLimitDefinitionsQuery({
+      orgId: orgSlug || slug,
+    })
 
   const { data: projectLimits, isLoading: projectLimitsLoading } = useProjectLimitsQuery({
     orgRef: orgSlug || slug,

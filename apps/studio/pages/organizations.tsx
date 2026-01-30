@@ -23,6 +23,7 @@ import {
   Skeleton,
 } from 'ui'
 import { Input } from 'ui-patterns/DataInputs/Input'
+import { useOrganizationsCreatable } from 'data/organizations/organizations-creatable'
 
 const OrganizationsPage: NextPageWithLayout = () => {
   const router = useRouter()
@@ -31,6 +32,7 @@ const OrganizationsPage: NextPageWithLayout = () => {
   const orgNotFound = orgNotFoundError === 'org_not_found'
 
   const { data: organizations = [], error, isLoading, isError, isSuccess } = useOrganizationsQuery()
+  const { data: canCreateOrganization, isLoading: isLoadingCanCreateOrganization } = useOrganizationsCreatable()
 
   const organizationCreationEnabled = useIsFeatureEnabled('organizations:create')
   const filteredOrganizations =
@@ -70,7 +72,7 @@ const OrganizationsPage: NextPageWithLayout = () => {
       )}
 
       <div className="flex items-center gap-x-2 md:gap-x-3">
-        {organizationCreationEnabled && (
+        {organizationCreationEnabled && !isLoadingCanCreateOrganization && canCreateOrganization && (
           <Button asChild type="primary" className="w-min">
             <Link href={`/new`}>New organization</Link>
           </Button>

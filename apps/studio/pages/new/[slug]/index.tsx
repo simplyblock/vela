@@ -45,12 +45,15 @@ import { getPathReferences } from 'data/vela/path-references'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import WideWizardLayout from 'components/layouts/WideWizardLayout'
 import { components } from 'data/vela/vela-schema'
+import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
 
 /* ------------------------------------------------------------------ */
 /* Types / labels                                                     */
 /* ------------------------------------------------------------------ */
 
-type SliderKey = 'vcpu' | 'ram' | 'nvme' | 'iops' | 'storage'
+type SliderKey = 'vcpu' | 'ram' | 'iops' | 'nvme' | 'storage'
+
+const sliderOrder = ['vcpu', 'ram', 'iops', 'nvme', 'storage'] as const
 
 const LABELS: Record<SliderKey, string> = {
   vcpu: 'vCPU',
@@ -71,7 +74,10 @@ type LimitCfg = {
 type LimitMap = Partial<Record<SliderKey, LimitCfg>>
 
 // API mapping for submit payload
-const FORM_TO_API: Record<SliderKey, 'milli_vcpu' | 'ram' | 'iops' | 'database_size' | 'storage_size'> = {
+const FORM_TO_API: Record<
+  SliderKey,
+  'milli_vcpu' | 'ram' | 'iops' | 'database_size' | 'storage_size'
+> = {
   vcpu: 'milli_vcpu',
   ram: 'ram',
   iops: 'iops',
@@ -165,7 +171,6 @@ const SliderRow = ({
   </div>
 )
 
-
 /* ------------------------------------------------------------------ */
 /* Page                                                               */
 /* ------------------------------------------------------------------ */
@@ -180,11 +185,15 @@ const CreateProjectPage: NextPageWithLayout = () => {
   const { slug } = getPathReferences()
 
   const { data: currentOrg } = useSelectedOrganizationQuery()
-  const [lastVisitedOrganization] = useLocalStorageQuery(LOCAL_STORAGE_KEYS.LAST_VISITED_ORGANIZATION, '')
+  const [lastVisitedOrganization] = useLocalStorageQuery(
+    LOCAL_STORAGE_KEYS.LAST_VISITED_ORGANIZATION,
+    ''
+  )
 
   useEffect(() => {
     if (slug === 'last-visited-org') {
-      if (lastVisitedOrganization) router.replace(`/new/${lastVisitedOrganization}`, undefined, { shallow: true })
+      if (lastVisitedOrganization)
+        router.replace(`/new/${lastVisitedOrganization}`, undefined, { shallow: true })
       else router.replace(`/new/_`, undefined, { shallow: true })
     }
   }, [slug, lastVisitedOrganization, router])
@@ -193,7 +202,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
   const { data: approvedOAuthApps } = useAuthorizedAppsQuery({ slug }, { enabled: slug !== '_' })
   const hasOAuthApps = !!approvedOAuthApps?.length
 
-  const [isComputeCostsConfirmationModalVisible, setIsComputeCostsConfirmationModalVisible] = useState(false)
+  const [isComputeCostsConfirmationModalVisible, setIsComputeCostsConfirmationModalVisible] =
+    useState(false)
 
   const { data: organizations, isSuccess: isOrganizationsSuccess } = useOrganizationsQuery()
   const isAdmin = useCheckPermissions('env:projects:create')
@@ -202,26 +212,31 @@ const CreateProjectPage: NextPageWithLayout = () => {
   const isEmptyOrganizations = (organizations?.length ?? 0) <= 0 && isOrganizationsSuccess
   const canCreateProject = isAdmin
 
+  const { data: systemLimitDefinitions } = useResourceLimitDefinitionsQuery()
+
   // Dynamic limit definitions
-  const { data: limitDefinitions } = useResourceLimitDefinitionsQuery({
-    orgId: slug,
+  const { data: limitDefinitions } = useOrganizationLimitsQuery({
+    orgRef: slug,
   })
 
   // Build dynamic limitConfig from API
   const limitConfig: LimitMap | null = useMemo(() => {
     if (!limitDefinitions) return null
+    if (!systemLimitDefinitions) return null
 
     const map: LimitMap = {}
-
     for (const def of limitDefinitions) {
-      switch (def.resource_type) {
+      const systemLimitDef = systemLimitDefinitions.find(
+        limit => limit.resource_type === def.resource
+      )
+      switch (def.resource) {
         case 'milli_vcpu': {
           const k: SliderKey = 'vcpu'
           const divider = 1000
           map[k] = {
             label: LABELS[k],
-            min: (def.min ?? 0) / divider,
-            max: (def.max ?? 0) / divider,
+            min: (systemLimitDef?.min ?? 0) / divider,
+            max: (def.max_total ?? 0) / divider,
             step: 0.1,
             unit: 'vCPU',
             divider,
@@ -233,8 +248,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
           const divider = GIB
           map[k] = {
             label: LABELS[k],
-            min: (def.min ?? 0) / divider,
-            max: (def.max ?? 0) / divider,
+            min: (systemLimitDef?.min ?? 0) / divider,
+            max: (def.max_total ?? 0) / divider,
             step: 0.125, // 128MiB
             unit: 'GiB',
             divider,
@@ -245,9 +260,9 @@ const CreateProjectPage: NextPageWithLayout = () => {
           const k: SliderKey = 'iops'
           map[k] = {
             label: LABELS[k],
-            min: def.min ?? 0,
-            max: def.max ?? 0,
-            step: Math.max(1, def.step ?? 100),
+            min: systemLimitDef?.min ?? 0,
+            max: def.max_total ?? 0,
+            step: Math.max(1, systemLimitDef?.step ?? 100),
             unit: 'IOPS',
             divider: 1,
           }
@@ -258,8 +273,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
           const divider = 10_000_000_000 // 10 GB
           map[k] = {
             label: LABELS[k],
-            min: (def.min ?? 0) / divider,
-            max: (def.max ?? 0) / divider,
+            min: (systemLimitDef?.min ?? 0) / divider,
+            max: (def.max_total ?? 0) / divider,
             step: 1,
             unit: 'GB',
             divider,
@@ -271,8 +286,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
           const divider = 10_000_000_000 // 10 GB
           map[k] = {
             label: LABELS[k],
-            min: (def.min ?? 0) / divider,
-            max: (def.max ?? 0) / divider,
+            min: (systemLimitDef?.min ?? 0) / divider,
+            max: (def.max_total ?? 0) / divider,
             step: 1,
             unit: 'GB',
             divider,
@@ -283,7 +298,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
     }
 
     return map
-  }, [limitDefinitions])
+  }, [limitDefinitions, systemLimitDefinitions])
 
   // Slider keys derived from API
   const sliderKeys = useMemo(
@@ -306,94 +321,93 @@ const CreateProjectPage: NextPageWithLayout = () => {
       enableHa: false,
       readReplicas: 0,
       perBranchLimits: {}, // set after limits load
-      projectLimits: {},   // set after limits load
+      projectLimits: {}, // set after limits load
     },
   })
   const {
-  mutate: createProject,
-  isLoading: isCreatingNewProject,
-  isSuccess: isSuccessNewProject,
-} = useProjectCreateMutation({
-  onSuccess: (res) => {
-    sendEvent({
-      action: 'project_creation_simple_version_submitted',
-      properties: { instanceSize: form.getValues('instanceSize') },
-      groups: { project: res.id, organization: res.organization_id },
-    })
-    router.push(`/org/${slug}/project/${res.id}/building`)
-  },
-
-  onError(error, variables, context) {
-
-    const details = (error as any)?.detail
-
-    // If server returns validation details array => map them into form errors
-    if (Array.isArray(details) && details.length > 0) {
-      // Clear any prior server errors that we might have set (optional)
-      // We'll set each server error below.
-      let firstFieldToFocus: string | null = null
-
-      details.forEach((d: any) => {
-        try {
-          const loc = Array.isArray(d.loc) ? d.loc : []
-          // expected loc example: ["body","project_limits","iops"]
-          const area = loc[1] // 'project_limits' | 'per_branch_limits' | other
-          const apiField = loc[2] // 'iops', 'ram', 'milli_vcpu', etc.
-          const msg = d.msg || d.message || (error && (error as any).message) || 'Invalid value'
-
-          const formKey = API_TO_FORM[apiField]
-          if (!formKey) {
-            // Unknown API field, skip mapping to field-level error
-            console.warn('Unmapped API field in validation error:', apiField)
-            return
-          }
-
-          let targetName: string | null = null
-          if (area === 'project_limits' || area === 'project_limits') {
-            // map to projectLimits.<key>
-            targetName = `projectLimits.${formKey}`
-          } else if (area === 'per_branch_limits' || area === 'per_branch_limits') {
-            targetName = `perBranchLimits.${formKey}`
-          } else if (area === 'body' || area === 'root' || area === undefined) {
-            // fallback heuristics: prefer projectLimits first
-            targetName = `projectLimits.${formKey}`
-          }
-
-          if (targetName) {
-            // Set a field error that react-hook-form will render next to the slider
-            form.setError(
-              targetName as any,
-              {
-                type: 'server',
-                message: msg,
-              },
-              { shouldFocus: false }
-            )
-            if (!firstFieldToFocus) firstFieldToFocus = targetName
-          }
-        } catch (err) {
-          console.error('Failed to map server validation detail to form field', err, d)
-        }
+    mutate: createProject,
+    isLoading: isCreatingNewProject,
+    isSuccess: isSuccessNewProject,
+  } = useProjectCreateMutation({
+    onSuccess: (res) => {
+      sendEvent({
+        action: 'project_creation_simple_version_submitted',
+        properties: { instanceSize: form.getValues('instanceSize') },
+        groups: { project: res.id, organization: res.organization_id },
       })
+      router.push(`/org/${slug}/project/${res.id}/building`)
+    },
 
-      // focus the first affected control (if available)
-      if (firstFieldToFocus) {
-        try {
-          form.setFocus(firstFieldToFocus as any)
-        } catch (e) {
-          // ignore if setFocus not available
+    onError(error, variables, context) {
+      const details = (error as any)?.detail
+
+      // If server returns validation details array => map them into form errors
+      if (Array.isArray(details) && details.length > 0) {
+        // Clear any prior server errors that we might have set (optional)
+        // We'll set each server error below.
+        let firstFieldToFocus: string | null = null
+
+        details.forEach((d: any) => {
+          try {
+            const loc = Array.isArray(d.loc) ? d.loc : []
+            // expected loc example: ["body","project_limits","iops"]
+            const area = loc[1] // 'project_limits' | 'per_branch_limits' | other
+            const apiField = loc[2] // 'iops', 'ram', 'milli_vcpu', etc.
+            const msg = d.msg || d.message || (error && (error as any).message) || 'Invalid value'
+
+            const formKey = API_TO_FORM[apiField]
+            if (!formKey) {
+              // Unknown API field, skip mapping to field-level error
+              console.warn('Unmapped API field in validation error:', apiField)
+              return
+            }
+
+            let targetName: string | null = null
+            if (area === 'project_limits' || area === 'project_limits') {
+              // map to projectLimits.<key>
+              targetName = `projectLimits.${formKey}`
+            } else if (area === 'per_branch_limits' || area === 'per_branch_limits') {
+              targetName = `perBranchLimits.${formKey}`
+            } else if (area === 'body' || area === 'root' || area === undefined) {
+              // fallback heuristics: prefer projectLimits first
+              targetName = `projectLimits.${formKey}`
+            }
+
+            if (targetName) {
+              // Set a field error that react-hook-form will render next to the slider
+              form.setError(
+                targetName as any,
+                {
+                  type: 'server',
+                  message: msg,
+                },
+                { shouldFocus: false }
+              )
+              if (!firstFieldToFocus) firstFieldToFocus = targetName
+            }
+          } catch (err) {
+            console.error('Failed to map server validation detail to form field', err, d)
+          }
+        })
+
+        // focus the first affected control (if available)
+        if (firstFieldToFocus) {
+          try {
+            form.setFocus(firstFieldToFocus as any)
+          } catch (e) {
+            // ignore if setFocus not available
+          }
         }
+
+        // Show a non-intrusive toast too (optional)
+        toast.error('Please fix highlighted fields and try again.')
+        return
       }
 
-      // Show a non-intrusive toast too (optional)
-      toast.error('Please fix highlighted fields and try again.')
-      return
-    }
-
-    // fallback: non-structured error -> show toast with message
-    toast.error((error as any)?.message || 'Failed to create project')
-  },
-})
+      // fallback: non-structured error -> show toast with message
+      toast.error((error as any)?.message || 'Failed to create project')
+    },
+  })
 
   // Initialize sliders once limits are available
   useEffect(() => {
@@ -424,7 +438,11 @@ const CreateProjectPage: NextPageWithLayout = () => {
   // Zero out storage if toggled off
   useEffect(() => {
     const sub = form.watch((v, { name }) => {
-      if (name === 'includeFileStorage' && v?.includeFileStorage === false && sliderKeys.includes('storage')) {
+      if (
+        name === 'includeFileStorage' &&
+        v?.includeFileStorage === false &&
+        sliderKeys.includes('storage')
+      ) {
         form.setValue('perBranchLimits.storage', 0, { shouldDirty: true, shouldValidate: false })
         form.setValue('projectLimits.storage', 0, { shouldDirty: true, shouldValidate: false })
       }
@@ -432,9 +450,10 @@ const CreateProjectPage: NextPageWithLayout = () => {
     return () => sub.unsubscribe()
   }, [form, sliderKeys])
 
-
   const { data: allProjectsFromApi } = useProjectsQuery()
-  const [allProjects, setAllProjects] = useState<components['schemas']['ProjectPublic'][] | undefined>(undefined)
+  const [allProjects, setAllProjects] = useState<
+    components['schemas']['ProjectPublic'][] | undefined
+  >(undefined)
 
   useEffect(() => {
     if (allProjectsFromApi && !allProjects) setAllProjects(allProjectsFromApi)
@@ -552,7 +571,9 @@ const CreateProjectPage: NextPageWithLayout = () => {
         <main className="flex-1 px-12 py-8">
           <div className="max-w-[1600px] mx-auto w-full space-y-10">
             <section>
-              {isOrganizationsSuccess && !isAdmin && !orgNotFound && <NotOrganizationOwnerWarning slug={slug} />}
+              {isOrganizationsSuccess && !isAdmin && !orgNotFound && (
+                <NotOrganizationOwnerWarning slug={slug} />
+              )}
               {orgNotFound && <OrgNotFound slug={slug} />}
             </section>
 
@@ -565,7 +586,10 @@ const CreateProjectPage: NextPageWithLayout = () => {
                     name="organization"
                     render={({ field }) => (
                       <div className="space-y-2">
-                        <Label_Shadcn_ htmlFor="organization" className="text-xs font-medium text-foreground whitespace-nowrap">
+                        <Label_Shadcn_
+                          htmlFor="organization"
+                          className="text-xs font-medium text-foreground whitespace-nowrap"
+                        >
                           Organization
                         </Label_Shadcn_>
                         {(organizations?.length ?? 0) > 0 && (
@@ -583,7 +607,11 @@ const CreateProjectPage: NextPageWithLayout = () => {
                             <SelectContent_Shadcn_>
                               <SelectGroup_Shadcn_>
                                 {organizations?.map((x) => (
-                                  <SelectItem_Shadcn_ key={x.id} value={x.id!} className="flex justify-between">
+                                  <SelectItem_Shadcn_
+                                    key={x.id}
+                                    value={x.id!}
+                                    className="flex justify-between"
+                                  >
                                     <span className="mr-2">{x.name}</span>
                                   </SelectItem_Shadcn_>
                                 ))}
@@ -606,10 +634,18 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   name="projectName"
                   render={({ field }) => (
                     <div className="space-y-2">
-                      <Label_Shadcn_ htmlFor="project-name" className="text-xs font-medium text-foreground whitespace-nowrap">
+                      <Label_Shadcn_
+                        htmlFor="project-name"
+                        className="text-xs font-medium text-foreground whitespace-nowrap"
+                      >
                         Project name
                       </Label_Shadcn_>
-                      <Input_Shadcn_ id="project-name" placeholder="Your project's name" className="h-9 text-sm" {...field} />
+                      <Input_Shadcn_
+                        id="project-name"
+                        placeholder="Your project's name"
+                        className="h-9 text-sm"
+                        {...field}
+                      />
                     </div>
                   )}
                 />
@@ -625,15 +661,19 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   <p className="text-sm text-foreground-muted">Loading limits…</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-4">
-                    {sliderKeys.map((key) => {
+                    {sliderOrder.map((key) => {
                       const cfg = limitConfig[key]!
                       const value = (form.watch(`projectLimits.${key}`) ?? cfg.min) as number
                       const storageDisabled = key === 'storage' && !form.watch('includeFileStorage')
 
-                        // Fetch server/form validation error for this field (project)
-                        const projectErrors = (form.formState.errors.projectLimits ?? {}) as Record<string, any>
-                        const rawError = projectErrors?.[key]?.message as string | undefined
-                        const errorMessage = rawError && cfg ? formatLimitError(rawError, cfg) : rawError
+                      // Fetch server/form validation error for this field (project)
+                      const projectErrors = (form.formState.errors.projectLimits ?? {}) as Record<
+                        string,
+                        any
+                      >
+                      const rawError = projectErrors?.[key]?.message as string | undefined
+                      const errorMessage =
+                        rawError && cfg ? formatLimitError(rawError, cfg) : rawError
 
                       return (
                         <SliderRow
@@ -673,18 +713,17 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   <p className="text-sm text-foreground-muted">Loading limits…</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-4">
-                    {sliderKeys.map((key) => {
+                    {sliderOrder.map((key) => {
                       const cfg = limitConfig[key]!
                       const value = (form.watch(`perBranchLimits.${key}`) ?? cfg.min) as number
                       const storageDisabled = key === 'storage' && !form.watch('includeFileStorage')
 
                       // Fetch server/form validation error for this field (per-branch)
-                      const perBranchErrors = (form.formState.errors.perBranchLimits ?? {}) as Record<string, any>
+                      const perBranchErrors = (form.formState.errors.perBranchLimits ??
+                        {}) as Record<string, any>
                       const rawError = perBranchErrors?.[key]?.message as string | undefined
                       const errorMessage =
-                        rawError && cfg
-                          ? formatLimitError(rawError, cfg)
-                          : rawError
+                        rawError && cfg ? formatLimitError(rawError, cfg) : rawError
                       return (
                         <SliderRow
                           key={key}
@@ -713,11 +752,10 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   </div>
                 )}
                 <p className="text-[11px] leading-snug text-foreground-muted">
-                  Resource allocation for this branch. These values will eventually control cost and performance.
+                  Resource allocation for this branch. These values will eventually control cost and
+                  performance.
                 </p>
               </section>
-
-              
             </section>
 
             {/* Row 3: Availability & storage */}
@@ -756,13 +794,14 @@ const CreateProjectPage: NextPageWithLayout = () => {
                         <Checkbox_Shadcn_
                           id="enable-ha"
                           checked={field.value}
+                          disabled={true}
                           onCheckedChange={(checked) => field.onChange(checked === true)}
                         />
                         <Label_Shadcn_
                           htmlFor="enable-ha"
                           className="text-foreground text-xs font-medium leading-tight whitespace-nowrap"
                         >
-                          Enable high availability
+                          Enable high availability (coming soon)
                         </Label_Shadcn_>
                       </>
                     )}
@@ -774,10 +813,20 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   name="readReplicas"
                   render={({ field }) => (
                     <div className="space-y-1 max-w-[200px]">
-                      <Label_Shadcn_ htmlFor="read-replicas" className="text-xs font-medium text-foreground whitespace-nowrap">
+                      <Label_Shadcn_
+                        htmlFor="read-replicas"
+                        className="text-xs font-medium text-foreground whitespace-nowrap"
+                      >
                         Read replicas
                       </Label_Shadcn_>
-                      <Input_Shadcn_ id="read-replicas" type="number" value={field.value} disabled readOnly className="h-9 text-sm" />
+                      <Input_Shadcn_
+                        id="read-replicas"
+                        type="number"
+                        value={field.value}
+                        disabled
+                        readOnly
+                        className="h-9 text-sm"
+                      />
                       <p className="text-[11px] leading-snug text-foreground-muted">Coming soon</p>
                     </div>
                   )}
@@ -786,7 +835,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
 
               <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
                 <p>
-                  This project may incur usage-based costs once created. Review your organization's billing plan and limits.{' '}
+                  This project may incur usage-based costs once created. Review your organization's
+                  billing plan and limits.{' '}
                   <Link href="https://vela.run/" target="_blank" className="underline">
                     Learn more
                   </Link>
@@ -840,8 +890,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
         >
           <div className="text-sm text-foreground-light space-y-1">
             <p>
-              Creating this project can increase your monthly costs by ${0}, independent of how actively you use it. By clicking
-              "I understand", you agree to the additional costs.{' '}
+              Creating this project can increase your monthly costs by ${0}, independent of how
+              actively you use it. By clicking "I understand", you agree to the additional costs.{' '}
               <Link href="https://vela.run/" target="_blank" className="underline">
                 Learn more
               </Link>
@@ -854,10 +904,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
   )
 }
 
-function formatLimitError(
-  message: string,
-  cfg: { divider: number; unit: string }
-): string {
+function formatLimitError(message: string, cfg: { divider: number; unit: string }): string {
   // grab all large integers in the message
   const numbers = message.match(/\d+/g)
   if (!numbers) return message
@@ -867,13 +914,11 @@ function formatLimitError(
     const value = Number(raw) / cfg.divider
 
     // nice formatting: integers stay clean, decimals get trimmed
-    const formatted =
-      value % 1 === 0 ? value.toString() : value.toFixed(2)
+    const formatted = value % 1 === 0 ? value.toString() : value.toFixed(2)
 
     return `${formatted} ${cfg.unit}`
   })
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Layout wrappers                                                     */

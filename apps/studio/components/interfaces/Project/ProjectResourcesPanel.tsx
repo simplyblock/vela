@@ -1,6 +1,6 @@
 // components/interfaces/Project/ProjectResourcesPanel.tsx
 import React, { useMemo, useState } from 'react'
-import { useProjectLimitsQuery } from 'data/resources/project-limits-query'
+import { useProjectLimitsQuery } from 'data/resource-limits/project-limits-query'
 import { useProjectUsageQuery } from 'data/resources/project-usage-query'
 import { cn } from 'ui'
 import { divideValue, formatResource,formatRawNumber } from './utils'

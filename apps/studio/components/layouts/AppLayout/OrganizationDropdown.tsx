@@ -23,6 +23,7 @@ import {
   ScrollArea,
   cn,
 } from 'ui'
+import { useOrganizationsCreatable } from 'data/organizations/organizations-creatable'
 
 export const OrganizationDropdown = () => {
   const router = useRouter()
@@ -31,6 +32,8 @@ export const OrganizationDropdown = () => {
   const { data: organizations, isLoading: isLoadingOrganizations } = useOrganizationsQuery()
 
   const organizationCreationEnabled = useIsFeatureEnabled('organizations:create')
+  const { data: canCreateOrganization, isLoading: isLoadingCanCreateOrganization } =
+    useOrganizationsCreatable()
 
   const slug = selectedOrganization?.id
   const orgName = selectedOrganization?.name
@@ -108,26 +111,28 @@ export const OrganizationDropdown = () => {
               </CommandGroup_Shadcn_>
 
               {/* 2) NEW (if enabled) */}
-              {organizationCreationEnabled && (
-                <>
-                  <CommandSeparator_Shadcn_ />
-                  <CommandGroup_Shadcn_>
-                    <CommandItem_Shadcn_
-                      className="cursor-pointer w-full"
-                      onSelect={() => {
-                        setOpen(false)
-                        router.push(`/new`)
-                      }}
-                      onClick={() => setOpen(false)}
-                    >
-                      <Link href="/new" className="flex items-center gap-2 w-full">
-                        <Plus size={14} strokeWidth={1.5} />
-                        <p>New organization</p>
-                      </Link>
-                    </CommandItem_Shadcn_>
-                  </CommandGroup_Shadcn_>
-                </>
-              )}
+              {organizationCreationEnabled &&
+                !isLoadingCanCreateOrganization &&
+                canCreateOrganization && (
+                  <>
+                    <CommandSeparator_Shadcn_ />
+                    <CommandGroup_Shadcn_>
+                      <CommandItem_Shadcn_
+                        className="cursor-pointer w-full"
+                        onSelect={() => {
+                          setOpen(false)
+                          router.push(`/new`)
+                        }}
+                        onClick={() => setOpen(false)}
+                      >
+                        <Link href="/new" className="flex items-center gap-2 w-full">
+                          <Plus size={14} strokeWidth={1.5} />
+                          <p>New organization</p>
+                        </Link>
+                      </CommandItem_Shadcn_>
+                    </CommandGroup_Shadcn_>
+                  </>
+                )}
 
               {/* 3) ALL */}
               <CommandSeparator_Shadcn_ />

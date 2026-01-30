@@ -6,7 +6,7 @@ import {
   UseQueryOptions,
 } from '@tanstack/react-query'
 import { ResponseError } from '../../types'
-import { resourcesKeys } from './keys'
+import { resourceLimitsKeys } from './keys'
 
 interface OrganizationLimitsVariables {
   orgRef?: string
@@ -47,7 +47,7 @@ export const useOrganizationLimitsQuery = <TData = OrganizationLimitsData>(
   return useQuery<OrganizationLimitsData, OrganizationLimitsError, TData>({
     ...options,
     staleTime: 60_000,
-    queryKey: resourcesKeys.organizationLimits(orgRef),
+    queryKey: resourceLimitsKeys.organizationLimits(orgRef),
     queryFn: async (context: QueryFunctionContext) =>
       getOrganizationLimits({ orgRef }, context.signal),
     enabled: enabled && typeof orgRef !== 'undefined',

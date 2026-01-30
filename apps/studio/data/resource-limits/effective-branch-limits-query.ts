@@ -1,7 +1,7 @@
 import { get, handleError } from '../fetchers'
 import { ResponseError } from '../../types'
 import { OmitKeyof, QueryFunctionContext, useQuery, UseQueryOptions } from '@tanstack/react-query'
-import { resourcesKeys } from '../resources/keys'
+import { resourceLimitsKeys } from './keys'
 
 interface EffectiveBranchLimitsVariables {
   orgRef?: string
@@ -52,7 +52,7 @@ export const useEffectiveBranchLimitsQuery = <TData = EffectiveBranchLimitsData>
   return useQuery<EffectiveBranchLimitsData, EffectiveBranchLimitsError, TData>({
     ...options,
     staleTime: 60_000,
-    queryKey: resourcesKeys.branchEffectiveLimits(orgRef, projectRef, branchRef),
+    queryKey: resourceLimitsKeys.branchEffectiveLimits(orgRef, projectRef, branchRef),
     queryFn: async (context: QueryFunctionContext) =>
       getEffectiveBranchLimits({ orgRef, projectRef, branchRef }, context.signal),
     enabled:

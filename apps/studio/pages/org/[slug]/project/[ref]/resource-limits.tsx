@@ -15,16 +15,16 @@ import {
 } from 'ui'
 
 import { useParams } from 'common'
-import { useProjectLimitsQuery } from 'data/resources/project-limits-query'
-import { useProjectLimitUpdateMutation } from 'data/resources/project-limit-update-mutation'
+import { useProjectLimitsQuery } from 'data/resource-limits/project-limits-query'
+import { useProjectLimitUpdateMutation } from 'data/resource-limits/project-limit-update-mutation'
 import {
   useBranchSliderResourceLimits,
   SliderSpecification,
   ResourceType,
 } from 'data/resource-limits/branch-slider-resource-limits'
 import { useProjectUsageQuery } from 'data/resources/project-usage-query'
-import { useResourceLimitDefinitionsQuery } from 'data/resource-limits/resource-limit-definitions-query'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
+import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
 
 /* ──────────────────────────────────────────────────────────────────
    Types & slider config
@@ -150,7 +150,7 @@ const SliderField = ({
 
 const ResourceLimit: NextPageWithLayout = () => {
 
-  const {can: canWriteSettings,isSuccess: isWriteSettingsPermissionSuccess} = useCheckPermissions("project:settings:write")
+  const {can: canWriteSettings, isSuccess: isWriteSettingsPermissionSuccess} = useCheckPermissions("project:settings:write")
 
   const isReadOnly = isWriteSettingsPermissionSuccess ? !canWriteSettings : true
   const [timeRange] = useState(() => {
@@ -175,8 +175,8 @@ const ResourceLimit: NextPageWithLayout = () => {
     projectRef
   )
 
-  const { data: definitions, isLoading: defsLoading } = useResourceLimitDefinitionsQuery({
-    orgId: orgRef,
+  const { data: definitions, isLoading: defsLoading } = useOrganizationLimitsQuery({
+    orgRef,
   })
 
   const { mutateAsync: updateLimit, isLoading: isSaving } = useProjectLimitUpdateMutation()
@@ -206,10 +206,10 @@ const ResourceLimit: NextPageWithLayout = () => {
       const cfg = limitConfig[slider.key]
       if (!cfg) return
 
-      const def = definitions.find((d) => d.resource_type === slider.resourceType)
-      if (!def || def.max == null) return
+      const def = definitions.find((d) => d.resource === slider.resourceType)
+      if (!def || def.max_total == null) return
 
-      base[slider.key] = def.max / cfg.divider
+      base[slider.key] = def.max_total / cfg.divider
     })
 
     return base

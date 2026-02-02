@@ -95,7 +95,7 @@ const SliderField = ({
           <div
             className={cn(
               'text-[11px] font-mono',
-              nearLimit ? 'text-destructive' : 'text-foreground-muted',
+              nearLimit ? 'text-destructive' : 'font-bold',
               !showUsage && 'invisible'
             )}
           >
@@ -105,7 +105,7 @@ const SliderField = ({
             </span>{' '}
             {unit}
           </div>
-          <div className="text-[11px] text-foreground-muted font-mono">
+          <div className="text-[11px] font-bold font-mono">
             Current:{' '}
             <span className="inline-block w-16 text-right">
               {current}
@@ -136,7 +136,7 @@ const SliderField = ({
             disabled={readOnly}
           />
         </div>
-        <div className="w-20 text-right text-[11px] text-foreground-muted font-mono">
+        <div className="w-20 text-right text-[11px] font-bold font-mono">
           {value} {unit}
         </div>
       </div>

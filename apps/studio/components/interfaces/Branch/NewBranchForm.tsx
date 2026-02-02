@@ -306,7 +306,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                     >
                       {label}
                     </Label_Shadcn_>
-                    <span className="text-foreground-muted whitespace-nowrap">
+                    <span className="font-bold whitespace-nowrap">
                       {value} {unit}
                     </span>
                   </div>

@@ -153,7 +153,7 @@ const SliderRow = ({
       <Label_Shadcn_ htmlFor={id} className="text-foreground whitespace-nowrap pr-2">
         {label}
       </Label_Shadcn_>
-      <span className="text-foreground-muted whitespace-nowrap">
+      <span className="font-bold whitespace-nowrap">
         {value} {unit}
       </span>
     </div>

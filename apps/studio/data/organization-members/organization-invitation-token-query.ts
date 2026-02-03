@@ -2,7 +2,7 @@ import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 
 import { get, handleError } from 'data/fetchers'
 import type { ResponseError } from 'types'
-import { organizationKeys } from './keys'
+import { organizationMembersKeys } from './keys'
 import { components } from 'api-types'
 
 export type OrganizationInviteTokenVariables = { slug?: string; token?: string }
@@ -36,7 +36,7 @@ export const useOrganizationInvitationTokenQuery = <TData = OrganizationInviteTo
   }: UseQueryOptions<OrganizationInviteTokenData, OrganizationInviteTokenError, TData> = {}
 ) => {
   return useQuery<OrganizationInviteTokenData, OrganizationInviteTokenError, TData>(
-    organizationKeys.token(slug, token),
+    organizationMembersKeys.token(slug, token),
     ({ signal }) => getOrganizationInviteByToken({ slug, token }, signal),
     {
       enabled: enabled && typeof slug !== 'undefined' && typeof token !== 'undefined',

@@ -1,4 +1,4 @@
-export const organizationKeys = {
+export const organizationMembersKeys = {
   roles: (slug: string | undefined) => ['organization-members', slug, 'roles'] as const,
   role_assignments: (slug: string | undefined) => ['organization-members', slug, 'role-assignments'] as const,
   invitations: (slug: string | undefined) => ['organization-members', slug, 'invitations'] as const,

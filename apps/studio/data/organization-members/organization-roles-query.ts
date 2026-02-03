@@ -2,7 +2,7 @@ import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 
 import { get, handleError } from 'data/fetchers'
 import type { ResponseError } from 'types'
-import { organizationKeys } from './keys'
+import { organizationMembersKeys } from './keys'
 
 export type OrganizationRolesVariables = { slug?: string }
 export type OrganizationRolesResponse = OrganizationRolesData
@@ -41,7 +41,7 @@ export const useOrganizationRolesQuery = (
   }: UseQueryOptions<OrganizationRoles, OrganizationRolesError, OrganizationRolesData> = {}
 ) =>
   useQuery<OrganizationRoles, OrganizationRolesError, OrganizationRolesData>(
-    organizationKeys.roles(slug),
+    organizationMembersKeys.roles(slug),
     ({ signal }) => getOrganizationRoles({ slug }, signal),
     {
       select: (data) => {

@@ -22,8 +22,12 @@ import { Member, useOrganizationMembersQuery } from 'data/organizations/organiza
 import { AssignMembersDialog } from './AssignMembersDialog'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
+import { toast } from 'sonner'
 
-type RoleAssignmentsMap = Record<string, string[]> // roleId -> userIds[]
+type RoleAssignmentsMap = Record<string, {
+  userId: string;
+  envTypes: string[];
+}[]>
 
 export const RoleAssignment = () => {
   const { slug } = getPathReferences()
@@ -57,20 +61,32 @@ export const RoleAssignment = () => {
     [roles]
   )
 
-  // Map roleId -> [userId, ...] 
-  // Show ALL assignments for the selected role (including those with different scopes)
-  const roleAssignmentsMap: RoleAssignmentsMap = useMemo(() => {
-    const map: RoleAssignmentsMap = {}
+// Update the roleAssignmentsMap creation
+const roleAssignmentsMap: RoleAssignmentsMap = useMemo(() => {
+  const map: RoleAssignmentsMap = {}
 
-    ;(roleAssignments ?? []).forEach((link) => {
-      if (!map[link.role_id]) map[link.role_id] = []
-      if (!map[link.role_id].includes(link.user_id)) {
-        map[link.role_id].push(link.user_id)
+  ;(roleAssignments ?? []).forEach((link) => {
+    if (!map[link.role_id]) map[link.role_id] = []
+    
+    // Find existing assignment for this user
+    const existing = map[link.role_id].find(a => a.userId === link.user_id)
+    
+    if (existing) {
+      // Add environment type if it exists
+      if (link.env_type && !existing.envTypes.includes(link.env_type)) {
+        existing.envTypes.push(link.env_type)
       }
-    })
+    } else {
+      // Create new assignment
+      map[link.role_id].push({
+        userId: link.user_id,
+        envTypes: link.env_type ? [link.env_type] : []
+      })
+    }
+  })
 
-    return map
-  }, [roleAssignments])
+  return map
+}, [roleAssignments])
 
   const membersById = useMemo(() => {
     const map: Record<string, Member> = {}
@@ -87,27 +103,40 @@ export const RoleAssignment = () => {
     [orgAndEnvRoles, selectedRoleId]
   )
 
-  const assignedMembers = useMemo(() => {
-    if (!selectedRoleId) return []
-    const userIds = roleAssignmentsMap[selectedRoleId] ?? []
-    return userIds
-      .map((id) => membersById[id])
-      .filter((m): m is Member => Boolean(m))
-  }, [selectedRoleId, roleAssignmentsMap, membersById])
+const assignedMembers = useMemo(() => {
+  if (!selectedRoleId) return []
+  const assignments = roleAssignmentsMap[selectedRoleId] ?? []
+  return assignments
+    .map(({ userId, envTypes }) => {
+      const member = membersById[userId]
+      return member ? { ...member, envTypes } : null
+    })
+    .filter((m): m is Member & { envTypes: string[] } => Boolean(m))
+}, [selectedRoleId, roleAssignmentsMap, membersById])
+
 
   const allMembers = members || []
   const orgEnvTypes = organization?.env_types ?? []
 
-  const handleRemoveMember = (userId: string) => {
-    if (!selectedRoleId || !slug || !selectedRole) return
+const handleRemoveMember = (userId: string) => {
+  if (!selectedRoleId || !slug || !selectedRole) return
 
-    unassignRole({ 
-      slug, 
-      userId, 
-      roleId: selectedRoleId,
-
+  // For environment roles, we need to remove all environment assignments
+  const assignments = roleAssignmentsMap[selectedRoleId] ?? []
+  const userAssignment = assignments.find(a => a.userId === userId)
+  
+  if (userAssignment) {
+    // Remove all assignments for this user-role combination
+    userAssignment.envTypes.forEach(envType => {
+      unassignRole({ 
+        slug, 
+        userId, 
+        roleId: selectedRoleId,
+      })
     })
+    toast.success('Role assignment removed successfully')
   }
+}
 
   const handleTogglePendingUser = (userId: string) => {
     setPendingSelection((p) =>
@@ -125,46 +154,107 @@ export const RoleAssignment = () => {
     setSelectedEnvTypes([])
   }
 
-  const handleSaveAssignments = () => {
-    if (!selectedRoleId || !slug || !selectedRole) return
+const handleSaveAssignments = () => {
+  if (!selectedRoleId || !slug || !selectedRole) return
 
-    const current = roleAssignmentsMap[selectedRoleId] ?? []
-    const next = pendingSelection
+  const assignments = roleAssignmentsMap[selectedRoleId] ?? []
+  const currentUsers = assignments.map(a => a.userId)
+  const nextUsers = pendingSelection
 
-    const toAdd = next.filter((id) => !current.includes(id))
-    const toRemove = current.filter((id) => !next.includes(id))
+  const toAdd = nextUsers.filter(userId => !currentUsers.includes(userId))
+  const toRemove = currentUsers.filter(userId => !nextUsers.includes(userId))
 
-    toAdd.forEach((userId) => {
-      assignRole({
-        slug,
-        userId,
-        roleId: selectedRoleId,
-        // Pass env_types only for environment roles
-        env_types: selectedRole.role_type === 'environment' ? selectedEnvTypes : undefined,
-      })
+  // Handle new assignments
+  toAdd.forEach((userId) => {
+    assignRole({
+      slug,
+      userId,
+      roleId: selectedRoleId,
+      // For environment roles, assign to all selected environment types
+      env_types: selectedRole.role_type === 'environment' ? selectedEnvTypes : undefined,
     })
+  })
 
-    toRemove.forEach((userId) => {
-      unassignRole({ 
-        slug, 
-        userId, 
-        roleId: selectedRoleId,
+  // Handle removals - remove all assignments for users being removed
+  toRemove.forEach((userId) => {
+    const userAssignment = assignments.find(a => a.userId === userId)
+    if (userAssignment) {
+      userAssignment.envTypes.forEach(envType => {
+        unassignRole({ 
+          slug, 
+          userId, 
+          roleId: selectedRoleId,
+
+        })
       })
-    })
+    }
+  })
 
-    setIsAssignModalOpen(false)
-    resetScope()
-  }
-
-  const handleOpenAssignModal = () => {
-    if (!selectedRoleId || !selectedRole) return
-    if (isReadOnly) return
+  // For users who stay assigned, handle environment type changes for environment roles
+  if (selectedRole.role_type === 'environment') {
+    const stayingUsers = nextUsers.filter(userId => currentUsers.includes(userId))
     
-    const assigned = roleAssignmentsMap[selectedRoleId] ?? []
-    setPendingSelection([...assigned])
-    resetScope()
-    setIsAssignModalOpen(true)
+    stayingUsers.forEach((userId) => {
+      const existingAssignment = assignments.find(a => a.userId === userId)
+      if (existingAssignment) {
+        const existingEnvTypes = existingAssignment.envTypes
+        
+        // Find environment types to add
+        const envTypesToAdd = selectedEnvTypes.filter(envType => 
+          !existingEnvTypes.includes(envType)
+        )
+        
+        // Find environment types to remove
+        const envTypesToRemove = existingEnvTypes.filter(envType => 
+          !selectedEnvTypes.includes(envType)
+        )
+        
+        // Add new environment types
+        envTypesToAdd.forEach(envType => {
+          assignRole({
+            slug,
+            userId,
+            roleId: selectedRoleId,
+            env_types: [envType],
+          })
+        })
+        
+        // Remove old environment types
+        envTypesToRemove.forEach(envType => {
+          unassignRole({
+            slug,
+            userId,
+            roleId: selectedRoleId,
+          })
+        })
+      }
+    })
   }
+  toast.success('Role assignments updated successfully')
+  setIsAssignModalOpen(false)
+  resetScope()
+}
+
+const handleOpenAssignModal = () => {
+  if (!selectedRoleId || !selectedRole) return
+  if (isReadOnly) return
+  
+  const assignments = roleAssignmentsMap[selectedRoleId] ?? []
+  // For organization roles, just select the users
+  // For environment roles, we need to show all users who have any assignment
+  const initialSelectedUsers = assignments.map(a => a.userId)
+  
+  // For environment roles, also need to set the selected environment types
+  if (selectedRole.role_type === 'environment') {
+    // Get all unique environment types from assignments
+    const allEnvTypes = assignments.flatMap(a => a.envTypes)
+    const uniqueEnvTypes = [...new Set(allEnvTypes)]
+    setSelectedEnvTypes(uniqueEnvTypes)
+  }
+  
+  setPendingSelection(initialSelectedUsers)
+  setIsAssignModalOpen(true)
+}
 
   return (
     <ScaffoldContainer>
@@ -232,6 +322,15 @@ export const RoleAssignment = () => {
                                 {member.primary_email}
                               </span>
                             )}
+                            {selectedRole && selectedRole.role_type === 'environment' && (
+                              <div className="mt-1">
+                                <span className="text-xs text-foreground-muted">
+                                  Environment types: {assignedMembers
+                                    .find(m => m.user_id === member.user_id)
+                                    ?.envTypes?.join(', ') || 'None'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           {!isReadOnly && (
                             <Button
@@ -274,7 +373,11 @@ export const RoleAssignment = () => {
         members={allMembers}
         selectedIds={pendingSelection}
         onToggleMember={handleTogglePendingUser}
-        isSaveDisabled={!selectedRole || (selectedRole?.role_type === 'environment' && selectedEnvTypes.length === 0)}
+        isSaveDisabled={
+          !selectedRole || 
+          pendingSelection.length === 0 || 
+          (selectedRole?.role_type === 'environment' && selectedEnvTypes.length === 0)
+        }
         onSave={handleSaveAssignments}
         scopeSlot={
           selectedRole && selectedRole.role_type === 'environment' ? (
@@ -285,13 +388,19 @@ export const RoleAssignment = () => {
                   {orgEnvTypes.map((env) => {
                     const isChecked = selectedEnvTypes.includes(env)
                     return (
-                      <div key={env} className="flex items-center gap-3 px-3 py-2">
+                      <label
+                        key={env}
+                        htmlFor={`env-${env}`}
+                        className="flex items-center gap-3 px-3 py-2 hover:bg-surface-200 cursor-pointer rounded-md"
+                      >
                         <Checkbox_Shadcn_
+                          id={`env-${env}`}
                           checked={isChecked}
                           onCheckedChange={() => handleToggleEnvType(env)}
+                          onClick={(e) => e.stopPropagation()}
                         />
                         <span className="text-sm">{env}</span>
-                      </div>
+                      </label>
                     )
                   })}
                 </div>

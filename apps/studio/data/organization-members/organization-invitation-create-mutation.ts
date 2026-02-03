@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { handleError, post } from 'data/fetchers'
 import { organizationKeys as organizationKeysV1 } from 'data/organizations/keys'
 import type { ResponseError } from 'types'
-import { organizationKeys } from './keys'
+import { organizationMembersKeys } from './keys'
 
 export type OrganizationCreateInvitationVariables = {
   slug: string
@@ -60,7 +60,7 @@ export const useOrganizationCreateInvitationMutation = ({
       const { slug } = variables
 
       await Promise.all([
-        queryClient.invalidateQueries(organizationKeys.roles(slug)),
+        queryClient.invalidateQueries(organizationMembersKeys.roles(slug)),
         queryClient.invalidateQueries(organizationKeysV1.members(slug)),
       ])
 

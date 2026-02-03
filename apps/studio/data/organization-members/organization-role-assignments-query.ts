@@ -3,7 +3,7 @@ import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 import { useIsLoggedIn } from 'common'
 import { get, handleError } from 'data/fetchers'
 import type { ResponseError } from 'types'
-import { organizationKeys } from './keys'
+import { organizationMembersKeys } from './keys'
 
 export type OrganizationRoleAssignmentsVariables = {
   slug?: string
@@ -40,7 +40,7 @@ export const useOrganizationRoleAssignmentsQuery = <TData = RoleAssignmentsData>
   const isLoggedIn = useIsLoggedIn()
 
   return useQuery<RoleAssignmentsData, RoleAssignmentsError, TData>(
-    organizationKeys.role_assignments(slug),
+    organizationMembersKeys.role_assignments(slug),
     ({ signal }) => getRoleAssignments({ slug }, signal),
     {
       ...options,

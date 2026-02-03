@@ -61,22 +61,25 @@ export const AssignMembersDialog = ({
                     const isSelected = selectedIds.includes(id)
 
                     return (
-                      <div
+                      <label
                         key={id}
+                        htmlFor={`member-${id}`}
                         className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-surface-200 cursor-pointer"
                       >
                         <Checkbox_Shadcn_
+                          id={`member-${id}`}
                           checked={isSelected}
                           onCheckedChange={() => onToggleMember(id)}
                           disabled={isSaving} 
+                          onClick={(e) => e.stopPropagation()} // Prevent double toggle
                         />
-                        <div>
+                        <div className="flex-1">
                           <p className="text-sm">{m.username || m.primary_email || id}</p>
                           {m.primary_email && (
                             <p className="text-xs text-foreground-light">{m.primary_email}</p>
                           )}
                         </div>
-                      </div>
+                      </label>
                     )
                   })}
                 </div>

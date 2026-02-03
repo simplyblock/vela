@@ -2,9 +2,9 @@ import { useMutation, UseMutationOptions, useQueryClient } from '@tanstack/react
 import { toast } from 'sonner'
 
 import { del, handleError } from 'data/fetchers'
-import { organizationKeys as organizationKeysV1 } from 'data/organizations/keys'
+import { organizationKeys } from 'data/organizations/keys'
 import type { ResponseError } from 'types'
-import { organizationKeys } from './keys'
+import { organizationMembersKeys } from './keys'
 
 export type OrganizationMemberUnassignRoleVariables = {
   slug: string
@@ -61,9 +61,10 @@ export const useOrganizationMemberUnassignRoleMutation = ({
 
       if (!skipInvalidation) {
         await Promise.all([
+          queryClient.invalidateQueries(organizationMembersKeys.roles(slug)),
           queryClient.invalidateQueries(organizationKeys.roles(slug)),
-          queryClient.invalidateQueries(organizationKeysV1.members(slug)),
-          queryClient.invalidateQueries(organizationKeys.role_assignments(slug)),
+          queryClient.invalidateQueries(organizationKeys.members(slug)),
+          queryClient.invalidateQueries(organizationMembersKeys.role_assignments(slug)),
         ])
       }
 

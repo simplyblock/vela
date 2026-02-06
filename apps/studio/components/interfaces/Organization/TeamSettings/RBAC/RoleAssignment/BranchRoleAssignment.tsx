@@ -144,7 +144,7 @@ export const BranchRoleAssignment = () => {
 
     const toAdd = next.filter((id) => !current.includes(id))
     const toRemove = current.filter((id) => !next.includes(id))
-    
+
     toAdd.forEach((userId) => {
       assignRole({
         slug,

@@ -57,7 +57,7 @@ const ColumnManagement = ({
   onClearImportContent = noop,
   onUpdateFkRelations,
 }: ColumnManagementProps) => {
-  const { ref: projectRef } = useParams()
+  const { ref: projectRef, branch: branchRef } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
 
   const [open, setOpen] = useState(false)
@@ -174,6 +174,7 @@ const ColumnManagement = ({
                         groups: {
                           project: projectRef ?? 'Unknown',
                           organization: org?.id ?? 'Unknown',
+                          branch: branchRef ?? 'Unknown',
                         },
                       })
                     }}

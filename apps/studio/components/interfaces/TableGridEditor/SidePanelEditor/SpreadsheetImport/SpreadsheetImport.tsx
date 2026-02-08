@@ -44,7 +44,7 @@ const SpreadsheetImport = ({
   closePanel,
   updateEditorDirty = noop,
 }: SpreadsheetImportProps) => {
-  const { ref: projectRef } = useParams()
+  const { ref: projectRef, branch: branchRef } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
   const tableEditorSnap = useTableEditorStateSnapshot()
 
@@ -169,7 +169,7 @@ const SpreadsheetImport = ({
       saveContent({ file: uploadedFile, ...spreadsheetData, selectedHeaders, resolve })
       sendEvent({
         action: 'import_data_added',
-        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
       })
     }
   }

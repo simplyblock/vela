@@ -132,7 +132,7 @@ export function NewTab() {
                       sendEvent({
                         action: 'sql_editor_template_clicked',
                         properties: { templateName: item.title },
-                        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
                       })
                     }}
                     bgColor="bg-alternative border"
@@ -159,7 +159,7 @@ export function NewTab() {
                       sendEvent({
                         action: 'sql_editor_quickstart_clicked',
                         properties: { quickstartName: item.title },
-                        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
                       })
                     }}
                     bgColor="bg-alternative border"

@@ -33,7 +33,7 @@ export const RealtimeFilterPopover = ({ config, onChangeConfig }: RealtimeFilter
   const [applyConfigOpen, setApplyConfigOpen] = useState(false)
   const [tempConfig, setTempConfig] = useState(config)
 
-  const { ref } = useParams()
+  const { ref, branch } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
   const { mutate: sendEvent } = useSendEventMutation()
 
@@ -206,7 +206,11 @@ export const RealtimeFilterPopover = ({ config, onChangeConfig }: RealtimeFilter
         onConfirm={() => {
           sendEvent({
             action: 'realtime_inspector_filters_applied',
-            groups: { project: ref ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+            groups: {
+              project: ref ?? 'Unknown',
+              organization: org?.id ?? 'Unknown',
+              branch: branch ?? 'Unknown',
+            },
           })
           onChangeConfig(tempConfig)
           setApplyConfigOpen(false)

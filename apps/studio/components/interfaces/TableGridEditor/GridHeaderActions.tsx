@@ -160,6 +160,7 @@ const GridHeaderActions = ({ table }: GridHeaderActionsProps) => {
       groups: {
         project: project?.id ?? 'Unknown',
         organization: org?.id ?? 'Unknown',
+        branch: branch?.id ?? 'Unknown',
       },
     })
 

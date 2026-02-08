@@ -117,7 +117,7 @@ const MessagesTable = ({
   const [focusedLog, setFocusedLog] = useState<LogData | null>(null)
   const stringData = JSON.stringify(data)
 
-  const { ref } = useParams()
+  const { ref, branch } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
   const { mutate: sendEvent } = useSendEventMutation()
 
@@ -192,6 +192,7 @@ const MessagesTable = ({
                           groups: {
                             project: ref ?? 'Unknown',
                             organization: org?.id ?? 'Unknown',
+                            branch: branch ?? 'Unknown',
                           },
                         })
                         setFocusedLog(row)

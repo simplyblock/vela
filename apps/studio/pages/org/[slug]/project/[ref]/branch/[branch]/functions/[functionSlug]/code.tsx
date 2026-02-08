@@ -21,7 +21,7 @@ import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
 
 const CodePage = () => {
-  const { slug: orgRef, ref: projectRef, functionSlug } = useParams()
+  const { slug: orgRef, ref: projectRef, branch: branchRef, functionSlug } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
   const { data: project } = useSelectedProjectQuery()
   const { data: branch } = useSelectedBranchQuery()
@@ -140,14 +140,14 @@ const CodePage = () => {
     setShowDeployWarning(true)
     sendEvent({
       action: 'edge_function_deploy_updates_button_clicked',
-      groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+      groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
     })
   }
 
   const handleDeployConfirm = () => {
     sendEvent({
       action: 'edge_function_deploy_updates_confirm_clicked',
-      groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+      groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
     })
     onUpdate()
   }

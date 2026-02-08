@@ -36,7 +36,8 @@ import {
   ResourceType,
   useBranchSliderResourceLimits,
 } from 'data/resource-limits/branch-slider-resource-limits'
-import { useBranchesQuery } from '../../../data/branches/branches-query'
+import { useBranchesQuery } from 'data/branches/branches-query'
+import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 
 type EnvironmentType = {
   label: string
@@ -79,6 +80,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   const [passwordStrengthMessage, setPasswordStrengthMessage] = useState('')
   const [adjustableResources, setAdjustableResources] = useState(true)
 
+  const { mutate: sendEvent } = useSendEventMutation()
   const { data: availablePostgresVersions } = useAvailablePostgresVersionsQuery()
   const { data: organization } = useSelectedOrganizationQuery()
   const { data: project } = useSelectedProjectQuery()
@@ -268,10 +270,20 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
       },
       {
         onSuccess: (data) => {
+          sendEvent({
+            action: 'branch_creation_submitted',
+            properties: { ...values },
+            groups: { project: ref, organization: slug, branch: data?.id ?? 'Unknown' },
+          })
           setNewBranchLoading(false)
           router.push(`/org/${slug}/project/${ref}`)
         },
         onError: (data) => {
+          sendEvent({
+            action: 'branch_creation_failed',
+            properties: { ...values, error: data.message },
+            groups: { project: ref, organization: slug },
+          })
           setNewBranchLoading(false)
           toast.error(data.message, { duration: 10_000 })
         },

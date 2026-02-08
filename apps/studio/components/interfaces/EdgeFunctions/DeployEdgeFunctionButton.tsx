@@ -39,7 +39,7 @@ export const DeployEdgeFunctionButton = () => {
             sendEvent({
               action: 'edge_function_via_editor_button_clicked',
               properties: { origin: 'secondary_action' },
-              groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+              groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
             })
           }}
           className="gap-4"

@@ -77,6 +77,7 @@ const BranchesPage: NextPageWithLayout = () => {
             groups: {
               project: projectRef ?? 'Unknown',
               organization: selectedOrg?.id ?? 'Unknown',
+              branch: branchRef ?? 'Unknown',
             },
           })
         },

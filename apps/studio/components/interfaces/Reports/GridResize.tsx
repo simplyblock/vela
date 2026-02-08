@@ -52,7 +52,7 @@ export const GridResize = ({
   onUpdateChart,
   setEditableReport,
 }: GridResizeProps) => {
-  const { ref } = useParams()
+  const { ref, branch } = useParams()
   const { profile } = useProfile()
   const { data: project } = useSelectedProjectQuery()
   const { data: selectedOrg } = useSelectedOrganizationQuery()
@@ -138,7 +138,7 @@ export const GridResize = ({
     )
     sendEvent({
       action: 'custom_report_assistant_sql_block_added',
-      groups: { project: ref ?? 'Unknown', organization: selectedOrg?.id ?? 'Unknown' },
+      groups: { project: ref ?? 'Unknown', organization: selectedOrg?.id ?? 'Unknown', branch: branch ?? 'Unknown' },
     })
   }
 

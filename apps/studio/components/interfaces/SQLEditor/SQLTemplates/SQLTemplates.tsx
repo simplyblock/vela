@@ -78,7 +78,7 @@ const SQLTemplates = () => {
                 sendEvent({
                   action: 'sql_editor_template_clicked',
                   properties: { templateName: x.title },
-                  groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                  groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
                 })
               }}
             />

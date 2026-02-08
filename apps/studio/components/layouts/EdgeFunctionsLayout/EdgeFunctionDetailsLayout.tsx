@@ -195,6 +195,7 @@ const EdgeFunctionDetailsLayout = ({
                     groups: {
                       project: projectRef ?? 'Unknown',
                       organization: org?.id ?? 'Unknown',
+                      branch: branchRef ?? 'Unknown',
                     },
                   })
                 }}

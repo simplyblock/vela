@@ -54,7 +54,7 @@ export const FunctionsEmptyState = () => {
                 sendEvent({
                   action: 'edge_function_via_editor_button_clicked',
                   properties: { origin: 'no_functions_block' },
-                  groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                  groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
                 })
               }}
             >
@@ -112,7 +112,7 @@ export const FunctionsEmptyState = () => {
               sendEvent({
                 action: 'edge_function_template_clicked',
                 properties: { templateName: template.name, origin: 'functions_page' },
-                groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
               })
             }}
           >

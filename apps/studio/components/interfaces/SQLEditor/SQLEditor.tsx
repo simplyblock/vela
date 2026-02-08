@@ -286,7 +286,7 @@ export const SQLEditor = () => {
 
         sendEvent({
           action: 'sql_editor_query_run_button_clicked',
-          groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+          groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
         })
       }
     },
@@ -366,7 +366,7 @@ export const SQLEditor = () => {
       sendEvent({
         action: 'assistant_sql_diff_handler_evaluated',
         properties: { handlerAccepted: true },
-        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+        groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
       })
 
       setSelectedDiffType(DiffType.Modification)
@@ -381,7 +381,7 @@ export const SQLEditor = () => {
     sendEvent({
       action: 'assistant_sql_diff_handler_evaluated',
       properties: { handlerAccepted: false },
-      groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+      groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
     })
     resetPrompt()
     closeDiff()

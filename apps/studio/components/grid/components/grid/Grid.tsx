@@ -90,6 +90,7 @@ export const Grid = memo(
             groups: {
               project: project?.id ?? 'Unknown',
               organization: org?.id ?? 'Unknown',
+              branch: branch?.id ?? 'Unknown',
             },
           })
         },
@@ -194,6 +195,7 @@ export const Grid = memo(
                                   groups: {
                                     project: project?.id ?? 'Unknown',
                                     organization: org?.id ?? 'Unknown',
+                                    branch: branch?.id ?? 'Unknown',
                                   },
                                 })
                               }}

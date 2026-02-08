@@ -12,6 +12,7 @@
 type TelemetryGroups = {
   project: string
   organization: string
+  branch?: string
 }
 
 /**
@@ -1459,6 +1460,18 @@ export interface HipaaRequestButtonClickedEvent {
   groups: Omit<TelemetryGroups, 'project'>
 }
 
+export interface BranchCreationSubmittedEvent {
+  action: 'branch_creation_submitted'
+  properties: any
+  groups: TelemetryGroups
+}
+
+export interface BranchCreationFailedEvent {
+  action: 'branch_creation_failed'
+  properties: any
+  groups: TelemetryGroups
+}
+
 /**
  * @hidden
  */
@@ -1554,3 +1567,5 @@ export type TelemetryEvent =
   | DpaRequestButtonClickedEvent
   | DocumentViewButtonClickedEvent
   | HipaaRequestButtonClickedEvent
+  | BranchCreationSubmittedEvent
+  | BranchCreationFailedEvent

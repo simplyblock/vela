@@ -27,7 +27,7 @@ export const DeleteCronJob = ({ cronJob, visible, onClose }: DeleteCronJobProps)
     onSuccess: () => {
       sendEvent({
         action: 'cron_job_deleted',
-        groups: { project: project?.id ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+        groups: { project: project?.id ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branch?.id ?? 'Unknown' },
       })
       toast.success(`Successfully removed cron job ${cronJob.jobname}`)
       onClose()

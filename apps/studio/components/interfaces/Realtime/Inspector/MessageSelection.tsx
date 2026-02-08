@@ -19,7 +19,7 @@ const MessageSelection = ({ log, onClose }: MessageSelectionProps) => {
     return JSON.stringify(log, null, 2)
   }, [log])
 
-  const { ref } = useParams()
+  const { ref, branch } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
   const { mutate: sendEvent } = useSendEventMutation()
 
@@ -79,7 +79,7 @@ const MessageSelection = ({ log, onClose }: MessageSelectionProps) => {
                 onClick={() => {
                   sendEvent({
                     action: 'realtime_inspector_copy_message_clicked',
-                    groups: { project: ref ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                    groups: { project: ref ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branch ?? 'Unknown' },
                   })
                 }}
               />

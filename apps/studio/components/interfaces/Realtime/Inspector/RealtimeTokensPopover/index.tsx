@@ -41,6 +41,7 @@ export const RealtimeTokensPopover = ({ config, onChangeConfig }: RealtimeTokens
         groups: {
           project: branch?.project_id ?? 'Unknown',
           organization: branch?.organization_id ?? 'Unknown',
+          branch: branch?.id ?? 'Unknown',
         },
       })
     }

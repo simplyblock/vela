@@ -38,7 +38,7 @@ const UtilityPanel = ({
   prettifyQuery,
   executeQuery,
 }: UtilityPanelProps) => {
-  const { ref } = useParams()
+  const { ref, branch } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
   const snapV2 = useSqlEditorV2StateSnapshot()
 
@@ -123,19 +123,19 @@ const UtilityPanel = ({
               onDownloadAsCSV={() =>
                 sendEvent({
                   action: 'sql_editor_result_download_csv_clicked',
-                  groups: { project: ref ?? '', organization: org?.id ?? '' },
+                  groups: { project: ref ?? '', organization: org?.id ?? '', branch: branch ?? '' },
                 })
               }
               onCopyAsMarkdown={() => {
                 sendEvent({
                   action: 'sql_editor_result_copy_markdown_clicked',
-                  groups: { project: ref ?? '', organization: org?.id ?? '' },
+                  groups: { project: ref ?? '', organization: org?.id ?? '', branch: branch ?? '' },
                 })
               }}
               onCopyAsJSON={() => {
                 sendEvent({
                   action: 'sql_editor_result_copy_json_clicked',
-                  groups: { project: ref ?? '', organization: org?.id ?? '' },
+                  groups: { project: ref ?? '', organization: org?.id ?? '', branch: branch ?? '' },
                 })
               }}
             />

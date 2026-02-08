@@ -78,7 +78,7 @@ const SQLQuickstarts = () => {
                 sendEvent({
                   action: 'sql_editor_quickstart_clicked',
                   properties: { quickstartName: x.title },
-                  groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+                  groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
                 })
               }}
             />

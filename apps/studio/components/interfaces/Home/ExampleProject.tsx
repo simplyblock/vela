@@ -16,7 +16,7 @@ interface ExampleProjectProps {
 
 const ExampleProject = ({ framework, title, description, url }: ExampleProjectProps) => {
   const { resolvedTheme } = useTheme()
-  const { ref: projectRef } = useParams()
+  const { ref: projectRef, branch: branchRef } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
 
   const { mutate: sendEvent } = useSendEventMutation()
@@ -30,7 +30,7 @@ const ExampleProject = ({ framework, title, description, url }: ExampleProjectPr
         sendEvent({
           action: 'example_project_card_clicked',
           properties: { cardTitle: title },
-          groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+          groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
         })
       }
     >

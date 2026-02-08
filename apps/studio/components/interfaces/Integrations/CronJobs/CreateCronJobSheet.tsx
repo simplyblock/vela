@@ -354,6 +354,7 @@ export const CreateCronJobSheet = ({
               groups: {
                 project: project?.id ?? 'Unknown',
                 organization: org?.id ?? 'Unknown',
+                branch: branch?.id ?? 'Unknown',
               },
             })
           } else {
@@ -366,6 +367,7 @@ export const CreateCronJobSheet = ({
               groups: {
                 project: project?.id ?? 'Unknown',
                 organization: org?.id ?? 'Unknown',
+                branch: branch?.id ?? 'Unknown',
               },
             })
           }

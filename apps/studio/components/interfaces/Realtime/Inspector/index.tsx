@@ -12,7 +12,7 @@ import { RealtimeConfig, useRealtimeMessages } from './useRealtimeMessages'
  * Acts as a container component for the entire log display
  */
 export const RealtimeInspector = () => {
-  const { slug: orgRef, ref: projectRef } = useParams()
+  const { slug: orgRef, ref: projectRef, branch: branchRef } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
 
   const [sendMessageShown, setSendMessageShown] = useState(false)
@@ -55,7 +55,7 @@ export const RealtimeInspector = () => {
         onSelectConfirm={(v) => {
           sendEvent({
             action: 'realtime_inspector_broadcast_sent',
-            groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown' },
+            groups: { project: projectRef ?? 'Unknown', organization: org?.id ?? 'Unknown', branch: branchRef ?? 'Unknown' },
           })
           sendMessage(v.message, v.payload, () => setSendMessageShown(false))
         }}

@@ -81,7 +81,7 @@ type FormValues = z.infer<typeof FormSchema>
 
 export const EdgeFunctionTesterSheet = ({ visible, onClose }: EdgeFunctionTesterSheetProps) => {
   const { data: org } = useSelectedOrganizationQuery()
-  const { slug: orgSlug, ref: projectRef, functionSlug } = useParams()
+  const { slug: orgSlug, ref: projectRef, branch: branchRef, functionSlug } = useParams()
   const { data: branch } = useSelectedBranchQuery()
   const getImpersonatedRoleState = useGetImpersonatedRoleState()
 
@@ -442,6 +442,7 @@ export const EdgeFunctionTesterSheet = ({ visible, onClose }: EdgeFunctionTester
                       groups: {
                         project: projectRef ?? 'Unknown',
                         organization: org?.id ?? 'Unknown',
+                        branch: branchRef ?? 'Unknown',
                       },
                     })
                   }

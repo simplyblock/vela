@@ -8,9 +8,11 @@ import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
 import { Button, Popover_Shadcn_, PopoverContent_Shadcn_, PopoverTrigger_Shadcn_ } from 'ui'
+import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
 
 export const HelpPopover = () => {
   const router = useRouter()
+  const { data: branch } = useSelectedBranchQuery()
   const { data: project } = useSelectedProjectQuery()
   const { data: org } = useSelectedOrganizationQuery()
 
@@ -34,7 +36,7 @@ export const HelpPopover = () => {
           onClick={() => {
             sendEvent({
               action: 'help_button_clicked',
-              groups: { project: project?.id, organization: org?.id },
+              groups: { project: project?.id, organization: org?.id, branch: branch?.id },
             })
           }}
         />

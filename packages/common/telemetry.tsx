@@ -26,6 +26,7 @@ export function handlePageTelemetry(
   },
   slug?: string,
   ref?: string,
+  branch?: string,
   telemetryDataOverride?: components['schemas']['TelemetryPageBodyV2']
 ) {
   // Send to PostHog client-side (only in browser)
@@ -53,6 +54,7 @@ export function handlePageTelemetry(
                 groups: {
                   ...(slug ? { organization: slug } : {}),
                   ...(ref ? { project: ref } : {}),
+                  ...(branch ? { branch } : {}),
                 },
               }
             : {}),
@@ -70,7 +72,8 @@ export function handlePageLeaveTelemetry(
     [key: string]: unknown
   },
   slug?: string,
-  ref?: string
+  ref?: string,
+  branch?: string
 ) {
   // Send to PostHog client-side (only in browser)
   if (typeof window !== 'undefined') {
@@ -89,6 +92,7 @@ export function handlePageLeaveTelemetry(
           groups: {
             ...(slug ? { organization: slug } : {}),
             ...(ref ? { project: ref } : {}),
+            ...(branch ? { branch } : {}),
           },
         }
       : {}),
@@ -101,12 +105,14 @@ export const PageTelemetry = ({
   enabled = true,
   organizationSlug,
   projectRef,
+  branchRef,
 }: {
   API_URL: string
   hasAcceptedConsent: boolean
   enabled?: boolean
   organizationSlug?: string
   projectRef?: string
+  branchRef?: string
 }) => {
   const router = useRouter()
 
@@ -117,6 +123,7 @@ export const PageTelemetry = ({
   const params = useParams()
   const slug = organizationSlug || params.slug
   const ref = projectRef || params.ref
+  const branch = branchRef || params.branch
 
   const title = typeof document !== 'undefined' ? document?.title : ''
   const referrer = typeof document !== 'undefined' ? document?.referrer : ''
@@ -134,11 +141,12 @@ export const PageTelemetry = ({
       pathnameRef.current,
       {},
       slug,
-      ref
+      ref,
+      branch
     ).catch((e) => {
       console.error('Problem sending telemetry page:', e)
     })
-  }, [API_URL, enabled, hasAcceptedConsent, slug, ref])
+  }, [API_URL, enabled, hasAcceptedConsent, slug, ref, branch])
 
   const sendPageLeaveTelemetry = useCallback(() => {
     if (!(enabled && hasAcceptedConsent)) return Promise.resolve()
@@ -150,11 +158,12 @@ export const PageTelemetry = ({
       pathnameRef.current,
       {},
       slug,
-      ref
+      ref,
+      branch
     ).catch((e) => {
       console.error('Problem sending telemetry page-leave:', e)
     })
-  }, [API_URL, enabled, hasAcceptedConsent, slug, ref])
+  }, [API_URL, enabled, hasAcceptedConsent, slug, ref, branch])
 
   // Handle initial page telemetry event
   const hasSentInitialPageTelemetryRef = useRef(false)
@@ -180,6 +189,7 @@ export const PageTelemetry = ({
             {},
             slug,
             ref,
+            branch,
             telemetryData
           )
           // remove the telemetry cookie
@@ -188,12 +198,12 @@ export const PageTelemetry = ({
           console.error('Invalid telemetry data:', error)
         }
       } else {
-        handlePageTelemetry(API_URL, pathnameRef.current, {}, slug, ref)
+        handlePageTelemetry(API_URL, pathnameRef.current, {}, slug, ref, branch)
       }
 
       hasSentInitialPageTelemetryRef.current = true
     }
-  }, [router?.isReady, hasAcceptedConsent, slug, ref])
+  }, [router?.isReady, hasAcceptedConsent, slug, ref, branch])
 
   useEffect(() => {
     // For pages router

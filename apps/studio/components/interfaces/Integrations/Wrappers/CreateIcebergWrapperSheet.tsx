@@ -167,6 +167,7 @@ export const CreateIcebergWrapperSheet = ({
         groups: {
           project: project?.id ?? 'Unknown',
           organization: org?.id ?? 'Unknown',
+          branch: branch?.id ?? 'Unknown',
         },
       })
     } catch (error) {

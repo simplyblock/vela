@@ -80,7 +80,7 @@ const Header = ({ customHeader }: HeaderProps) => {
 export default Header
 
 const DefaultHeader = () => {
-  const { ref: projectRef } = useParams()
+  const { ref: projectRef, branch: branchRef } = useParams()
   const { data: org } = useSelectedOrganizationQuery()
 
   const snap = useTableEditorTableStateSnapshot()
@@ -184,6 +184,7 @@ const DefaultHeader = () => {
                                 groups: {
                                   project: projectRef ?? 'Unknown',
                                   organization: org?.id ?? 'Unknown',
+                                  branch: branchRef ?? 'Unknown',
                                 },
                               })
                             }}

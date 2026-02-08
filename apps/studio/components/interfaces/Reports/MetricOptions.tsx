@@ -38,7 +38,7 @@ interface MetricOptionsProps {
 }
 
 export const MetricOptions = ({ config, handleChartSelection }: MetricOptionsProps) => {
-  const { ref: projectRef } = useParams()
+  const { ref: projectRef, branch: branchRef } = useParams()
   const { data: selectedOrganization } = useSelectedOrganizationQuery()
   const [search, setSearch] = useState('')
 
@@ -144,6 +144,7 @@ export const MetricOptions = ({ config, handleChartSelection }: MetricOptionsPro
                             groups: {
                               project: projectRef ?? 'Unknown',
                               organization: selectedOrganization?.id ?? 'Unknown',
+                              branch: branchRef ?? 'Unknown',
                             },
                           })
                         }

@@ -18717,6 +18717,11 @@ export interface components {
             /** Description */
             description: string;
         };
+        /** Assignment */
+        Assignment: {
+            /** Contexts */
+            contexts: string[] | string[] | null;
+        };
         /** AuditLog */
         AuditLog: {
             action: components["schemas"]["Action"];
@@ -18918,8 +18923,6 @@ export interface components {
         BranchPgbouncerConfigStatus: {
             /** Pgbouncer Enabled */
             pgbouncer_enabled: boolean;
-            /** Pgbouncer Status */
-            pgbouncer_status: string;
             /** Pool Mode */
             pool_mode: string;
             /** Max Client Conn */
@@ -19468,33 +19471,6 @@ export interface components {
         };
         /** @enum {string} */
         ResponseType: "empty" | "full";
-        /** RoleAssignmentPayload */
-        RoleAssignmentPayload: {
-            /**
-             * Project Ids
-             * @default []
-             */
-            project_ids?: string[];
-            /**
-             * Branch Ids
-             * @default []
-             */
-            branch_ids?: string[];
-            /**
-             * Env Types
-             * @default []
-             */
-            env_types?: string[];
-        };
-        /** RoleAssignmentPublic */
-        RoleAssignmentPublic: {
-            /** Status */
-            status: string;
-            /** Count */
-            count: number;
-            /** Links */
-            links: components["schemas"]["RoleUserLinkPublic"][];
-        };
         /** RoleCreate */
         RoleCreate: {
             /** Name */
@@ -19791,6 +19767,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
         AbstractPolicyRepresentation: {
             id?: string;
@@ -23691,17 +23671,42 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RoleAssignmentPayload"];
+                "application/json": components["schemas"]["Assignment"];
             };
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not authenticated */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleAssignmentPublic"];
+                    "application/json": components["schemas"]["HTTPError"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPError"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPError"];
                 };
             };
             /** @description Validation Error */

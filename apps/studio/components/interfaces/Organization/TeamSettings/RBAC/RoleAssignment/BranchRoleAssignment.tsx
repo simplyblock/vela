@@ -150,7 +150,6 @@ export const BranchRoleAssignment = () => {
         slug,
         userId,
         roleId: selectedRoleId,
-        projects: [selectedProjectId],
         branches: selectedBranchIds,
       })
     })

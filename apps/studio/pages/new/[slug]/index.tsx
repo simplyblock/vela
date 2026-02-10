@@ -497,8 +497,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
       return
     }
 
-    const per_branch_limits: Record<string, number> = {}
-    const project_limits: Record<string, number> = {}
+    let per_branch_limits: Record<string, number> = {}
+    let project_limits: Record<string, number> = {}
 
     for (const key of sliderKeys) {
       const apiKey = FORM_TO_API[key]
@@ -506,10 +506,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
       per_branch_limits[apiKey] = (values.perBranchLimits as any)[key] * divider
       project_limits[apiKey] = (values.projectLimits as any)[key] * divider
     }
-
     if (!values.includeFileStorage && sliderKeys.includes('storage')) {
-      per_branch_limits['storage_size'] = 0
-      project_limits['storage_size'] = 0
+      const { storage_size, ...restPerBranch } = per_branch_limits
+      const { storage_size: _, ...restProject } = project_limits
+      
+      per_branch_limits = restPerBranch
+      project_limits = restProject
     }
 
     const data: ProjectCreateVariables = {

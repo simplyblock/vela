@@ -101,7 +101,8 @@ Find help, explore resources, or get involved with the Vela community.
 
 ### Support & Contributions
  
-- [Open an Issue](https://github.com/simplyblock/vela-studio/issues) – Report bugs or suggest improvements  
+- [Open an Issue](https://github.com/simplyblock/vela-studio/issues) – Report bugs or suggest improvements
+- [Join our Discord](https://discord.gg/DEqbJgEk89) - Realtime discussions, questions, answers, ideas
 - [Start a Discussion](https://github.com/simplyblock/vela-studio/discussions) – Share feedback and feature ideas, ask questions, share ideas, and connect with other users  
 - [Contribute Code](https://github.com/simplyblock/vela-studio/pulls) – Submit pull requests following our contribution guidelines  
 

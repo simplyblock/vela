@@ -281,7 +281,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
         onError: (data) => {
           sendEvent({
             action: 'branch_creation_failed',
-            properties: { ...values, error: data.message },
+            properties: { ...values, error: data.message, error_detail: data.detail },
             groups: { project: ref, organization: slug },
           })
           setNewBranchLoading(false)

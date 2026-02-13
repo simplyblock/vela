@@ -45,6 +45,10 @@ export function formatForUnit(
   const unitKey = key
   const v = raw / divider
 
+  if(unitKey === 'iops') {
+    return new Intl.NumberFormat().format(v) 
+  }
+
   // heuristics to match previous components' behavior
   if (unitKey === 'milli_vcpu') {
     // show vCPU with 0 or 1 decimal

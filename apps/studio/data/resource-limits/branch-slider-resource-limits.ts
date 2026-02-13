@@ -89,7 +89,7 @@ const vcpuLimit = (
     step: 1,
     unit: 'x 0.1 vCPU',
     divider: step,
-    initial: (maxResources?.iops ?? minMillis) / step,
+    initial: (maxResources?.milli_vcpu ?? minMillis) / step,
   }
 }
 
@@ -105,34 +105,23 @@ const memoryLimit = (
     ? projectLimit
     : { max_per_branch: MAX_INTEGER }
 
-  // Defaults match backend requirements
-  const {
-    min = 2 * GIB,
-    max = 256 * GIB,
-    step = 256, // MiB (backend multiple = 256 MiB)
-    unit = 'MiB',
-  } = systemLimit ?? {}
+  // Assume backend always sends BYTES
+  const { min, max, step } = systemLimit
+    ? systemLimit
+    : { min: 2 * GIB, max: 256 * GIB, step: 256 * MIB } 
 
   const maxResources = source?.max_resources
 
   const maxMemory = Math.min(max_per_branch, max)
   const minMemory = min
 
-  // Convert system step → GiB
-  const stepGiB =
-    unit === 'MiB'
-      ? step / 1024
-      : unit === 'GiB'
-      ? step
-      : (step * 1024 * 1024) / GIB
-
   return {
     min: minMemory / GIB,
     max: maxMemory / GIB,
-    step: stepGiB, 
+    step: step / GIB, 
     unit: 'GiB',
     divider: GIB,
-    initial: (maxResources?.iops ?? minMemory) / GIB,
+    initial: (maxResources?.ram_bytes ?? minMemory) / GIB,
   }
 }
 
@@ -160,7 +149,7 @@ const databaseSizeLimit = (
     step: 1,
     unit: unit ?? 'GB',
     divider: step,
-    initial: (maxResources?.iops ?? minSize) / step,
+    initial: minSize / step,
   }
 }
 
@@ -188,7 +177,7 @@ const storageSizeLimit = (
     step: 1,
     unit: unit ?? 'GB',
     divider: step,
-    initial: (maxResources?.iops ?? minSize) / step,
+    initial: minSize / step,
   }
 }
 

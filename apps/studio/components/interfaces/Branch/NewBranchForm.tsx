@@ -319,7 +319,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                       {label}
                     </Label_Shadcn_>
                     <span className="font-bold whitespace-nowrap">
-                      {value} {unit}
+                      {new Intl.NumberFormat().format(value)} {unit}
                     </span>
                   </div>
                   <Slider_Shadcn_

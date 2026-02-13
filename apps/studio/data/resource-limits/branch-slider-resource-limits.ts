@@ -101,19 +101,35 @@ const memoryLimit = (
   const systemLimit = selectSystemResourceType('ram', systemLimits)
   const projectLimit = selectProjectResourceType('ram', projectLimits)
 
-  const { max_per_branch } = projectLimit ? projectLimit : { max_per_branch: MAX_INTEGER }
-  const { min, max, step, unit } = systemLimit
-    ? systemLimit
-    : { min: 2 * GIB, max: 256 * GIB, step: 128, unit: 'MiB' }
+  const { max_per_branch } = projectLimit
+    ? projectLimit
+    : { max_per_branch: MAX_INTEGER }
+
+  // Defaults match backend requirements
+  const {
+    min = 2 * GIB,
+    max = 256 * GIB,
+    step = 256, // MiB (backend multiple = 256 MiB)
+    unit = 'MiB',
+  } = systemLimit ?? {}
 
   const maxResources = source?.max_resources
+
   const maxMemory = Math.min(max_per_branch, max)
   const minMemory = min
+
+  // Convert system step → GiB
+  const stepGiB =
+    unit === 'MiB'
+      ? step / 1024
+      : unit === 'GiB'
+      ? step
+      : (step * 1024 * 1024) / GIB
 
   return {
     min: minMemory / GIB,
     max: maxMemory / GIB,
-    step: 0.125,
+    step: stepGiB, 
     unit: 'GiB',
     divider: GIB,
     initial: (maxResources?.iops ?? minMemory) / GIB,

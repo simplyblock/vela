@@ -139,6 +139,8 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=latest-{{sha}},enable={{is_default_branch}}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=dev-{{sha}},enable=${{ github.ref == 'refs/heads/dev' }}
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}

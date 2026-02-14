@@ -101,7 +101,7 @@ export const generateDocsMenu = (
         {
           name: 'API Reference',
           key: 'api-reference',
-          url: `https://docs.vela.run/builder/api`,
+          url: `https://docs.vela.run/latest/builder/rest-api/`,
           icon: <BookOpen size={14} strokeWidth={2} />,
           items: [],
           isExternal: true,

@@ -239,10 +239,6 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
 
     setNewBranchLoading(true)
 
-    // Only if storage service is enabled
-    const storageSize = values.enableStorageService
-      ? values.resources.storage_size * limits.storage_size.divider
-      : undefined
 
     const resourceAllocations = adjustableResources
       ? {
@@ -250,10 +246,14 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
           database_image_tag: values.postgresVersion as any,
           enable_file_storage: values.enableStorageService,
           database_size: values.resources.database_size * limits.database_size.divider,
-          storage_size: storageSize,
           milli_vcpu: values.resources.milli_vcpu * limits.milli_vcpu.divider,
           memory_bytes: values.resources.ram * limits.ram.divider,
           iops: values.resources.iops * limits.iops.divider,
+
+          // only include when enabled
+          ...(values.enableStorageService
+            ? { storage_size: values.resources.storage_size * limits.storage_size.divider }
+            : {}),
         }
       : undefined
 

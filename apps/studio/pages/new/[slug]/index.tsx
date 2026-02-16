@@ -847,33 +847,34 @@ const CreateProjectPage: NextPageWithLayout = () => {
               </div>
             </section>
           </div>
-        </main>
-
-        {/* Footer */}
-        <footer className="border-t bg-surface px-12 py-4 mt-6">
-          <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <Button
-                type="default"
-                disabled={isCreatingNewProject || isSuccessNewProject}
-                onClick={() => {
-                  if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
-                  else router.push('/organizations')
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                htmlType="submit"
-                loading={isCreatingNewProject || isSuccessNewProject}
-                disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
-                type="primary"
-              >
-                Create project
-              </Button>
+          {/* Actions */}
+          <div className="border-t bg-surface px-12 py-4 mt-6">
+            <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <Button
+                  type="default"
+                  disabled={isCreatingNewProject || isSuccessNewProject}
+                  onClick={() => {
+                    if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
+                    else router.push('/organizations')
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  htmlType="submit"
+                  loading={isCreatingNewProject || isSuccessNewProject}
+                  disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
+                  type="primary"
+                >
+                  Create project
+                </Button>
+              </div>
             </div>
           </div>
-        </footer>
+        </main>
+
+
 
         {/* Confirmation modal */}
         <ConfirmationModal

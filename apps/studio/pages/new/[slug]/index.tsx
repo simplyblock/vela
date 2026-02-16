@@ -250,7 +250,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 0.125, // 128MiB
+            step: 0.25, // 256MiB
             unit: 'GiB',
             divider,
           }

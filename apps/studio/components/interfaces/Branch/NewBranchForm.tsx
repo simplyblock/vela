@@ -278,15 +278,35 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
           setNewBranchLoading(false)
           router.push(`/org/${slug}/project/${ref}`)
         },
-        onError: (data) => {
-          sendEvent({
-            action: 'branch_creation_failed',
-            properties: { ...values, error: data.message, error_detail: data.detail },
-            groups: { project: ref, organization: slug },
-          })
+       onError: (err) => {
+        const details = (err as any)?.detail
+        if (Array.isArray(details)) {
+          const mapField = (field: string) => {
+            switch (field) {
+              case "milli_vcpu": return "resources.milli_vcpu"
+              case "memory_bytes": return "resources.ram"
+              case "iops": return "resources.iops"
+              case "database_size": return "resources.database_size"
+              case "storage_size": return "resources.storage_size"
+              default: return null
+            }
+          }
+
+          for (const d of details) {
+            const loc = Array.isArray(d.loc) ? d.loc : []
+            const field = loc[loc.length - 1] 
+            const msg = d.msg ?? "Invalid value"
+            const target = mapField(field)
+            if (target) form.setError(target as any, { type: "server", message: msg })
+          }
+
           setNewBranchLoading(false)
-          toast.error(data.message, { duration: 10_000 })
-        },
+          return
+        }
+
+        setNewBranchLoading(false)
+        toast.error((err as any)?.message ?? "Failed to create branch")
+      },
       }
     )
   }
@@ -298,6 +318,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   }
 
   const renderSliders = useCallback(() => {
+    
     if (!limits) return
     return (
       <div className="mt-4 grid grid-cols-1 w-full">
@@ -306,6 +327,9 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
 
           <div className="grid grid-cols-1 gap-y-4">
             {(Object.keys(limits) as ResourceType[]).map((key) => {
+              const fieldError = (form.formState.errors as any)?.resources?.[key]?.message as
+              | string
+              | undefined
               const { label, min, max, step, unit } = limits[key]
               const value = form.watch(`resources.${key}`)
               const enabled = key !== 'storage_size' || enableStorageService
@@ -331,6 +355,11 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                     onValueChange={handleBranchSliderChange(key)}
                     disabled={!enabled}
                   />
+                  {fieldError && (
+                    <div className="mt-1">
+                      <Label_Shadcn_ className="text-xs text-destructive">{fieldError}</Label_Shadcn_>
+                    </div>
+                  )}
                   {key === 'storage_size' && !enableStorageService && (
                     <div className="mt-2">
                       <Label_Shadcn_ className="text-xs text-muted-foreground">

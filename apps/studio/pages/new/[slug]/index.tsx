@@ -850,7 +850,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
         </main>
 
         {/* Footer */}
-        <footer className="sticky bottom-0 border-t bg-surface/90 backdrop-blur px-12 py-4">
+        <footer className="border-t bg-surface px-12 py-4 mt-6">
           <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
             <div className="flex items-center gap-2 sm:ml-auto">
               <Button

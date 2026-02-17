@@ -3,7 +3,7 @@ name: Notify vela controller repo (Development)
 on:
   workflow_run:
     branches: [dev]
-    workflows: ['Deploy Vela Studio to Dev']
+    workflows: ['Build and publish image']
     types:
       - completed
 

@@ -154,7 +154,7 @@ const SliderRow = ({
         {label}
       </Label_Shadcn_>
       <span className="font-bold whitespace-nowrap">
-        {value} {unit}
+        {new Intl.NumberFormat().format(value)} {unit}
       </span>
     </div>
     <Slider_Shadcn_
@@ -250,7 +250,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 0.125, // 128MiB
+            step: 0.25, // 256MiB
             unit: 'GiB',
             divider,
           }
@@ -497,8 +497,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
       return
     }
 
-    const per_branch_limits: Record<string, number> = {}
-    const project_limits: Record<string, number> = {}
+    let per_branch_limits: Record<string, number> = {}
+    let project_limits: Record<string, number> = {}
 
     for (const key of sliderKeys) {
       const apiKey = FORM_TO_API[key]
@@ -506,10 +506,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
       per_branch_limits[apiKey] = (values.perBranchLimits as any)[key] * divider
       project_limits[apiKey] = (values.projectLimits as any)[key] * divider
     }
-
     if (!values.includeFileStorage && sliderKeys.includes('storage')) {
-      per_branch_limits['storage_size'] = 0
-      project_limits['storage_size'] = 0
+      const { storage_size, ...restPerBranch } = per_branch_limits
+      const { storage_size: _, ...restProject } = project_limits
+      
+      per_branch_limits = restPerBranch
+      project_limits = restProject
     }
 
     const data: ProjectCreateVariables = {
@@ -845,33 +847,34 @@ const CreateProjectPage: NextPageWithLayout = () => {
               </div>
             </section>
           </div>
-        </main>
-
-        {/* Footer */}
-        <footer className="sticky bottom-0 border-t bg-surface/90 backdrop-blur px-12 py-4">
-          <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <div className="flex items-center gap-2 sm:ml-auto">
-              <Button
-                type="default"
-                disabled={isCreatingNewProject || isSuccessNewProject}
-                onClick={() => {
-                  if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
-                  else router.push('/organizations')
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                htmlType="submit"
-                loading={isCreatingNewProject || isSuccessNewProject}
-                disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
-                type="primary"
-              >
-                Create project
-              </Button>
+          {/* Actions */}
+          <div className="border-t bg-surface px-12 py-4 mt-6">
+            <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <Button
+                  type="default"
+                  disabled={isCreatingNewProject || isSuccessNewProject}
+                  onClick={() => {
+                    if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
+                    else router.push('/organizations')
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  htmlType="submit"
+                  loading={isCreatingNewProject || isSuccessNewProject}
+                  disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
+                  type="primary"
+                >
+                  Create project
+                </Button>
+              </div>
             </div>
           </div>
-        </footer>
+        </main>
+
+
 
         {/* Confirmation modal */}
         <ConfirmationModal

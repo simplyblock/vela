@@ -21,7 +21,7 @@ const Entities = ({ language }: ContentProps) => {
   const onClickGenerateTypes = async () => {
     try {
       setIsGeneratingTypes(true)
-      const res = await generateTypes({ slug, ref, included_schemas: config?.db_schema })
+      const res = await generateTypes({ slug, ref, branch: branch?.id, included_schemas: config?.db_schema })
       let element = document.createElement('a')
       element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(res.types))
       element.setAttribute('download', 'supabase.ts')

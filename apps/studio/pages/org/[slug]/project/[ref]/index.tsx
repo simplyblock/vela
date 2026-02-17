@@ -258,7 +258,7 @@ const ProjectOverviewPage: NextPageWithLayout = () => {
       {/* Delete confirmation modal */}
       <ConfirmationModal
         size="medium"
-        loading={false}
+        loading={deleteBranch.isPending}
         visible={!!deleteTarget}
         title={deleteTarget ? `Delete branch “${deleteTarget.name}”?` : 'Delete branch'}
         confirmLabel="Delete branch"

@@ -418,8 +418,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
 
     for (const key of sliderKeys) {
       const cfg = limitConfig[key]!
-      perBranchDefaults[key] = cfg.min
-      projectDefaults[key] = cfg.min
+      perBranchDefaults[key] = Math.max(cfg.min, cfg.max * 0.2) // 20%
+      projectDefaults[key] = Math.max(cfg.min, cfg.max * 0.5) // 50%
     }
 
     if (!form.getValues('includeFileStorage') && sliderKeys.includes('storage')) {

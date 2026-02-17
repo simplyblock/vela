@@ -174,7 +174,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
       if (key === 'storage_size' && !values.enableStorageService) return
 
       const current = values.resources[key]
-      const fallback = limits[key].min
+      const fallback = Math.max(limits[key].min, limits[key].max * 0.5) // 40%
 
       form.setValue(`resources.${key}`, current === 0 ? fallback : current, {
         shouldDirty: false,

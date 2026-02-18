@@ -271,7 +271,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
         }
         case 'database_size': {
           const k: SliderKey = 'nvme'
-          const divider = 10_000_000_000 // 10 GB
+          const divider = 1_000_000_000 // 1 GB
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,

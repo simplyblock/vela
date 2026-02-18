@@ -284,7 +284,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
         }
         case 'storage_size': {
           const k: SliderKey = 'storage'
-          const divider = 10_000_000_000 // 10 GB
+          const divider = 1_000_000_000 // 1 GB
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,

@@ -46,6 +46,7 @@ import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import WideWizardLayout from 'components/layouts/WideWizardLayout'
 import { components } from 'data/vela/vela-schema'
 import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
+import { calculateSliderDefault } from '../../../lib/slider-helpers'
 
 /* ------------------------------------------------------------------ */
 /* Types / labels                                                     */
@@ -418,8 +419,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
 
     for (const key of sliderKeys) {
       const cfg = limitConfig[key]!
-      perBranchDefaults[key] = Math.max(cfg.min, cfg.max * 0.2) // 20%
-      projectDefaults[key] = Math.max(cfg.min, cfg.max * 0.5) // 50%
+      perBranchDefaults[key] = calculateSliderDefault(cfg.min, cfg.max, cfg.step, 0.2) // 20%
+      projectDefaults[key] = calculateSliderDefault(cfg.min, cfg.max, cfg.step, 0.5) // 50%
     }
 
     if (!form.getValues('includeFileStorage') && sliderKeys.includes('storage')) {

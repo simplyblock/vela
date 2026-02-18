@@ -38,6 +38,7 @@ import {
 } from 'data/resource-limits/branch-slider-resource-limits'
 import { useBranchesQuery } from 'data/branches/branches-query'
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
+import { calculateSliderDefault } from 'lib/slider-helpers'
 
 type EnvironmentType = {
   label: string
@@ -174,7 +175,8 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
       if (key === 'storage_size' && !values.enableStorageService) return
 
       const current = values.resources[key]
-      const fallback = Math.max(limits[key].min, limits[key].max * 0.5) // 40%
+      const spec = limits[key]
+      const fallback = calculateSliderDefault(spec.min, spec.max, spec.step, 0.5) // 50%
 
       form.setValue(`resources.${key}`, current === 0 ? fallback : current, {
         shouldDirty: false,

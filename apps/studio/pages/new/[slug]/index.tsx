@@ -234,11 +234,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'milli_vcpu': {
           const k: SliderKey = 'vcpu'
           const divider = 1000
+          const backendStep = systemLimitDef?.step ?? 100
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 0.1,
+            step: backendStep / divider,
             unit: 'vCPU',
             divider,
           }
@@ -247,11 +248,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'ram': {
           const k: SliderKey = 'ram'
           const divider = GIB
+          const backendStep = systemLimitDef?.step ?? 256 * 1024 * 1024
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 0.25, // 256MiB
+            step: backendStep / divider,
             unit: 'GiB',
             divider,
           }
@@ -263,7 +265,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
             label: LABELS[k],
             min: systemLimitDef?.min ?? 0,
             max: def.max_total ?? 0,
-            step: Math.max(1, systemLimitDef?.step ?? 100),
+            step: systemLimitDef?.step ?? 100,
             unit: 'IOPS',
             divider: 1,
           }
@@ -272,11 +274,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'database_size': {
           const k: SliderKey = 'nvme'
           const divider = 1_000_000_000 // 1 GB
+          const backendStep = systemLimitDef?.step ?? divider
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 1,
+            step: backendStep / divider,
             unit: 'GB',
             divider,
           }
@@ -285,11 +288,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'storage_size': {
           const k: SliderKey = 'storage'
           const divider = 1_000_000_000 // 1 GB
+          const backendStep = systemLimitDef?.step ?? divider
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 1,
+            step: backendStep / divider,
             unit: 'GB',
             divider,
           }

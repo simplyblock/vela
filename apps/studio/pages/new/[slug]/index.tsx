@@ -71,8 +71,8 @@ const CREATE_PROJECT_STEPS: Array<{
   description: string
 }> = [
   { step: 1, title: 'Basics', description: 'Choose organization and project identity.' },
-  { step: 2, title: 'Resource limits', description: 'Configure project-wide and per-branch ceilings.' },
-  { step: 3, title: 'Availability & review', description: 'Review settings and confirm project creation.' },
+  { step: 2, title: 'Availability', description: 'Choose storage and availability options.' },
+  { step: 3, title: 'Resource limits', description: 'Configure project-wide and per-branch ceilings.' },
 ]
 
 type LimitCfg = {
@@ -490,8 +490,6 @@ const CreateProjectPage: NextPageWithLayout = () => {
   const watchedOrganization = form.watch('organization')
   const watchedPerBranchLimits = form.watch('perBranchLimits')
   const watchedProjectLimits = form.watch('projectLimits')
-  const watchedEnableHa = form.watch('enableHa')
-  const watchedReadReplicas = form.watch('readReplicas')
 
   const shouldValidateOrganization =
     isAdmin && !isInvalidSlug && (organizations?.length ?? 0) > 0
@@ -503,6 +501,9 @@ const CreateProjectPage: NextPageWithLayout = () => {
       return fields
     }
     if (currentStep === 2) {
+      return []
+    }
+    if (currentStep === 3) {
       return sliderKeys.flatMap((key) => [`projectLimits.${key}`, `perBranchLimits.${key}`])
     }
     return []
@@ -549,7 +550,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
     Boolean(watchedProjectName?.trim()) &&
     (!shouldValidateOrganization || Boolean(watchedOrganization))
 
-  const canNextStep2 = Boolean(limitConfig) && !hasStep2Errors && !hasStep2InvalidValues
+  const canNextStep2 = true
 
   // Submit handlers
   const additionalMonthlySpend = 0
@@ -776,9 +777,9 @@ const CreateProjectPage: NextPageWithLayout = () => {
               </>
             )}
 
-            {step === 2 && (
+            {step === 3 && (
               <>
-                {/* Row 2: Per-branch / Project limits */}
+                {/* Resource limits */}
                 <section className="grid gap-10 xl:grid-cols-2">
               {/* Project */}
               <section className="rounded-lg border p-5 space-y-4">
@@ -890,9 +891,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
               </>
             )}
 
-            {step === 3 && (
-              <section className="grid gap-10 xl:grid-cols-2">
-                <section className="rounded-lg border p-5 space-y-6">
+            {step === 2 && (
+              <section className="rounded-lg border p-5 space-y-6">
                   <div className="space-y-4">
                     <p className="font-medium text-sm text-foreground">Availability &amp; storage</p>
 
@@ -976,103 +976,6 @@ const CreateProjectPage: NextPageWithLayout = () => {
                       .
                     </p>
                   </div>
-                </section>
-                <section className="rounded-lg border p-5 space-y-4">
-                  <p className="font-medium text-sm text-foreground">Review</p>
-                  <div className="grid grid-cols-1 gap-3 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-foreground-muted">Organization</span>
-                      <span className="font-medium">{watchedOrganization || '-'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-foreground-muted">Project name</span>
-                      <span className="font-medium">{watchedProjectName || '-'}</span>
-                    </div>
-                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
-                      Per-branch limits
-                    </div>
-                    {sliderOrder
-                      .filter((key) => sliderKeys.includes(key))
-                      .filter((key) => !(key === 'storage' && !includeFileStorage))
-                      .map((key) => {
-                        const cfg = limitConfig?.[key]
-                        if (!cfg) return null
-                        const value = (watchedPerBranchLimits?.[key] ?? 0) as number
-                        return (
-                          <div
-                            key={`summary-per-${key}`}
-                            className="flex items-center justify-between gap-4"
-                          >
-                            <span className="text-foreground-muted">{cfg.label}</span>
-                            <span className="font-medium">
-                              {new Intl.NumberFormat().format(value)} {cfg.unit}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
-                      Project limits
-                    </div>
-                    {sliderOrder
-                      .filter((key) => sliderKeys.includes(key))
-                      .filter((key) => !(key === 'storage' && !includeFileStorage))
-                      .map((key) => {
-                        const cfg = limitConfig?.[key]
-                        if (!cfg) return null
-                        const value = (watchedProjectLimits?.[key] ?? 0) as number
-                        return (
-                          <div
-                            key={`summary-project-${key}`}
-                            className="flex items-center justify-between gap-4"
-                          >
-                            <span className="text-foreground-muted">{cfg.label}</span>
-                            <span className="font-medium">
-                              {new Intl.NumberFormat().format(value)} {cfg.unit}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
-                      Availability options
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-foreground-muted">Include file storage</span>
-                      <span className="font-medium">
-                        {includeFileStorage ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-foreground-muted">High availability</span>
-                      <span className="font-medium">{watchedEnableHa ? 'Enabled' : 'Disabled'}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-foreground-muted">Read replicas</span>
-                      <span className="font-medium">{watchedReadReplicas}</span>
-                    </div>
-                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
-                      API payload preview
-                    </div>
-                    {sliderOrder
-                      .filter((key) => sliderKeys.includes(key))
-                      .filter((key) => !(key === 'storage' && !includeFileStorage))
-                      .map((key) => {
-                        const cfg = limitConfig?.[key]
-                        if (!cfg) return null
-                        const apiKey = FORM_TO_API[key]
-                        const perBranch = ((watchedPerBranchLimits?.[key] ?? 0) as number) * cfg.divider
-                        const project = ((watchedProjectLimits?.[key] ?? 0) as number) * cfg.divider
-                        return (
-                          <div key={`summary-api-${key}`} className="space-y-1">
-                            <p className="text-foreground-muted">{apiKey}</p>
-                            <p className="font-medium">
-                              Per-branch: {new Intl.NumberFormat().format(perBranch)} | Project:{' '}
-                              {new Intl.NumberFormat().format(project)}
-                            </p>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </section>
               </section>
             )}
           </div>

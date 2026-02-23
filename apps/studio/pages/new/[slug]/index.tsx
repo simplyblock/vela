@@ -53,6 +53,7 @@ import { calculateSliderDefault } from '../../../lib/slider-helpers'
 /* ------------------------------------------------------------------ */
 
 type SliderKey = 'vcpu' | 'ram' | 'iops' | 'nvme' | 'storage'
+type CreateProjectStep = 1 | 2 | 3
 
 const sliderOrder = ['vcpu', 'ram', 'iops', 'nvme', 'storage'] as const
 
@@ -63,6 +64,16 @@ const LABELS: Record<SliderKey, string> = {
   iops: 'IOPS',
   storage: 'Storage',
 }
+
+const CREATE_PROJECT_STEPS: Array<{
+  step: CreateProjectStep
+  title: string
+  description: string
+}> = [
+  { step: 1, title: 'Basics', description: 'Choose organization and project identity.' },
+  { step: 2, title: 'Resource limits', description: 'Configure project-wide and per-branch ceilings.' },
+  { step: 3, title: 'Availability & review', description: 'Review settings and confirm project creation.' },
+]
 
 type LimitCfg = {
   label: string
@@ -205,6 +216,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
 
   const [isComputeCostsConfirmationModalVisible, setIsComputeCostsConfirmationModalVisible] =
     useState(false)
+  const [step, setStep] = useState<CreateProjectStep>(1)
 
   const { data: organizations, isSuccess: isOrganizationsSuccess } = useOrganizationsQuery()
   const isAdmin = useCheckPermissions('env:projects:create')
@@ -473,6 +485,72 @@ const CreateProjectPage: NextPageWithLayout = () => {
     if (projectName) form.setValue('projectName', projectName || '')
   }, [slug, projectName, form])
 
+  const includeFileStorage = form.watch('includeFileStorage')
+  const watchedProjectName = form.watch('projectName')
+  const watchedOrganization = form.watch('organization')
+  const watchedPerBranchLimits = form.watch('perBranchLimits')
+  const watchedProjectLimits = form.watch('projectLimits')
+  const watchedEnableHa = form.watch('enableHa')
+  const watchedReadReplicas = form.watch('readReplicas')
+
+  const shouldValidateOrganization =
+    isAdmin && !isInvalidSlug && (organizations?.length ?? 0) > 0
+
+  const getStepFields = (currentStep: CreateProjectStep) => {
+    if (currentStep === 1) {
+      const fields: string[] = ['projectName']
+      if (shouldValidateOrganization) fields.push('organization')
+      return fields
+    }
+    if (currentStep === 2) {
+      return sliderKeys.flatMap((key) => [`projectLimits.${key}`, `perBranchLimits.${key}`])
+    }
+    return []
+  }
+
+  const validateStep = async (currentStep: CreateProjectStep) => {
+    const fields = getStepFields(currentStep)
+    if (fields.length === 0) return true
+    return form.trigger(fields as any)
+  }
+
+  const goNextStep = async () => {
+    const valid = await validateStep(step)
+    if (!valid) return
+    if (step < 3) setStep((prev) => (prev + 1) as CreateProjectStep)
+  }
+
+  const goPreviousStep = () => {
+    if (step > 1) setStep((prev) => (prev - 1) as CreateProjectStep)
+  }
+
+  const hasStep2Errors = sliderKeys.some(
+    (key) =>
+      Boolean((form.formState.errors.projectLimits as any)?.[key]) ||
+      Boolean((form.formState.errors.perBranchLimits as any)?.[key])
+  )
+
+  const hasStep2InvalidValues = sliderKeys.some((key) => {
+    if (!limitConfig) return true
+    if (key === 'storage' && !includeFileStorage) return false
+
+    const cfg = limitConfig[key]
+    if (!cfg) return true
+    const perBranchValue = (watchedPerBranchLimits as any)?.[key]
+    const projectValue = (watchedProjectLimits as any)?.[key]
+    if (typeof perBranchValue !== 'number' || typeof projectValue !== 'number') return true
+    if (perBranchValue < cfg.min || perBranchValue > cfg.max) return true
+    if (projectValue < cfg.min || projectValue > cfg.max) return true
+    if (projectValue < perBranchValue) return true
+    return false
+  })
+
+  const canNextStep1 =
+    Boolean(watchedProjectName?.trim()) &&
+    (!shouldValidateOrganization || Boolean(watchedOrganization))
+
+  const canNextStep2 = Boolean(limitConfig) && !hasStep2Errors && !hasStep2InvalidValues
+
   // Submit handlers
   const additionalMonthlySpend = 0
   const onSubmitWithComputeCostsConfirmation = async (values: CreateProjectForm) => {
@@ -584,8 +662,45 @@ const CreateProjectPage: NextPageWithLayout = () => {
               {orgNotFound && <OrgNotFound slug={slug} />}
             </section>
 
-            {/* Top row: Organization / Project */}
-            <section className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:items-start">
+            <section className="rounded-lg border p-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {CREATE_PROJECT_STEPS.map((stepMeta) => {
+                  const isActive = stepMeta.step === step
+                  const isCompleted = stepMeta.step < step
+
+                  return (
+                    <div key={stepMeta.step} className="flex items-start gap-3">
+                      <div
+                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
+                          isCompleted
+                            ? 'border-brand bg-brand text-white'
+                            : isActive
+                            ? 'border-brand text-brand'
+                            : 'border-default text-foreground-muted'
+                        }`}
+                      >
+                        {stepMeta.step}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p
+                          className={`text-sm font-medium ${
+                            isActive ? 'text-foreground' : 'text-foreground-muted'
+                          }`}
+                        >
+                          {stepMeta.title}
+                        </p>
+                        <p className="text-xs text-foreground-muted">{stepMeta.description}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            {step === 1 && (
+              <>
+                {/* Top row: Organization / Project */}
+                <section className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:items-start">
               <div className="space-y-6">
                 {isAdmin && !isInvalidSlug && (
                   <FormField_Shadcn_
@@ -657,10 +772,14 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   )}
                 />
               </div>
-            </section>
+                </section>
+              </>
+            )}
 
-            {/* Row 2: Per-branch / Project limits */}
-            <section className="grid gap-10 xl:grid-cols-2">
+            {step === 2 && (
+              <>
+                {/* Row 2: Per-branch / Project limits */}
+                <section className="grid gap-10 xl:grid-cols-2">
               {/* Project */}
               <section className="rounded-lg border p-5 space-y-4">
                 <p className="font-medium text-sm text-foreground">Project limits</p>
@@ -668,10 +787,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   <p className="text-sm text-foreground-muted">Loading limits…</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-4">
-                    {sliderOrder.map((key) => {
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .map((key) => {
                       const cfg = limitConfig[key]!
-                      const value = (form.watch(`projectLimits.${key}`) ?? cfg.min) as number
-                      const storageDisabled = key === 'storage' && !form.watch('includeFileStorage')
+                      const value = (watchedProjectLimits?.[key] ?? cfg.min) as number
+                      const storageDisabled = key === 'storage' && !includeFileStorage
 
                       // Fetch server/form validation error for this field (project)
                       const projectErrors = (form.formState.errors.projectLimits ?? {}) as Record<
@@ -706,7 +827,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
                           }
                         />
                       )
-                    })}
+                      })}
                   </div>
                 )}
                 <p className="text-[11px] leading-snug text-foreground-muted">
@@ -720,10 +841,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   <p className="text-sm text-foreground-muted">Loading limits…</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-4">
-                    {sliderOrder.map((key) => {
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .map((key) => {
                       const cfg = limitConfig[key]!
-                      const value = (form.watch(`perBranchLimits.${key}`) ?? cfg.min) as number
-                      const storageDisabled = key === 'storage' && !form.watch('includeFileStorage')
+                      const value = (watchedPerBranchLimits?.[key] ?? cfg.min) as number
+                      const storageDisabled = key === 'storage' && !includeFileStorage
 
                       // Fetch server/form validation error for this field (per-branch)
                       const perBranchErrors = (form.formState.errors.perBranchLimits ??
@@ -755,7 +878,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
                           }
                         />
                       )
-                    })}
+                      })}
                   </div>
                 )}
                 <p className="text-[11px] leading-snug text-foreground-muted">
@@ -763,12 +886,15 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   performance.
                 </p>
               </section>
-            </section>
+                </section>
+              </>
+            )}
 
-            {/* Row 3: Availability & storage */}
-            <section className="rounded-lg border p-5 space-y-6">
-              <div className="space-y-4">
-                <p className="font-medium text-sm text-foreground">Availability &amp; storage</p>
+            {step === 3 && (
+              <section className="grid gap-10 xl:grid-cols-2">
+                <section className="rounded-lg border p-5 space-y-6">
+                  <div className="space-y-4">
+                    <p className="font-medium text-sm text-foreground">Availability &amp; storage</p>
 
                 <div className="flex items-start gap-3 text-sm">
                   <FormField_Shadcn_
@@ -838,42 +964,180 @@ const CreateProjectPage: NextPageWithLayout = () => {
                     </div>
                   )}
                 />
-              </div>
+                  </div>
 
-              <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
-                <p>
-                  This project may incur usage-based costs once created. Review your organization's
-                  billing plan and limits.{' '}
-                  <Link href="https://vela.run/" target="_blank" className="underline">
-                    Learn more
-                  </Link>
-                  .
-                </p>
-              </div>
-            </section>
+                  <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
+                    <p>
+                      This project may incur usage-based costs once created. Review your
+                      organization's billing plan and limits.{' '}
+                      <Link href="https://vela.run/" target="_blank" className="underline">
+                        Learn more
+                      </Link>
+                      .
+                    </p>
+                  </div>
+                </section>
+                <section className="rounded-lg border p-5 space-y-4">
+                  <p className="font-medium text-sm text-foreground">Review</p>
+                  <div className="grid grid-cols-1 gap-3 text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-foreground-muted">Organization</span>
+                      <span className="font-medium">{watchedOrganization || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-foreground-muted">Project name</span>
+                      <span className="font-medium">{watchedProjectName || '-'}</span>
+                    </div>
+                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
+                      Per-branch limits
+                    </div>
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .filter((key) => !(key === 'storage' && !includeFileStorage))
+                      .map((key) => {
+                        const cfg = limitConfig?.[key]
+                        if (!cfg) return null
+                        const value = (watchedPerBranchLimits?.[key] ?? 0) as number
+                        return (
+                          <div
+                            key={`summary-per-${key}`}
+                            className="flex items-center justify-between gap-4"
+                          >
+                            <span className="text-foreground-muted">{cfg.label}</span>
+                            <span className="font-medium">
+                              {new Intl.NumberFormat().format(value)} {cfg.unit}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
+                      Project limits
+                    </div>
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .filter((key) => !(key === 'storage' && !includeFileStorage))
+                      .map((key) => {
+                        const cfg = limitConfig?.[key]
+                        if (!cfg) return null
+                        const value = (watchedProjectLimits?.[key] ?? 0) as number
+                        return (
+                          <div
+                            key={`summary-project-${key}`}
+                            className="flex items-center justify-between gap-4"
+                          >
+                            <span className="text-foreground-muted">{cfg.label}</span>
+                            <span className="font-medium">
+                              {new Intl.NumberFormat().format(value)} {cfg.unit}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
+                      Availability options
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-foreground-muted">Include file storage</span>
+                      <span className="font-medium">
+                        {includeFileStorage ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-foreground-muted">High availability</span>
+                      <span className="font-medium">{watchedEnableHa ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-foreground-muted">Read replicas</span>
+                      <span className="font-medium">{watchedReadReplicas}</span>
+                    </div>
+                    <div className="pt-1 border-t text-xs font-medium text-foreground-muted">
+                      API payload preview
+                    </div>
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .filter((key) => !(key === 'storage' && !includeFileStorage))
+                      .map((key) => {
+                        const cfg = limitConfig?.[key]
+                        if (!cfg) return null
+                        const apiKey = FORM_TO_API[key]
+                        const perBranch = ((watchedPerBranchLimits?.[key] ?? 0) as number) * cfg.divider
+                        const project = ((watchedProjectLimits?.[key] ?? 0) as number) * cfg.divider
+                        return (
+                          <div key={`summary-api-${key}`} className="space-y-1">
+                            <p className="text-foreground-muted">{apiKey}</p>
+                            <p className="font-medium">
+                              Per-branch: {new Intl.NumberFormat().format(perBranch)} | Project:{' '}
+                              {new Intl.NumberFormat().format(project)}
+                            </p>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </section>
+              </section>
+            )}
           </div>
           {/* Actions */}
           <div className="border-t bg-surface px-12 py-4 mt-6">
             <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
               <div className="flex items-center gap-2 sm:ml-auto">
-                <Button
-                  type="default"
-                  disabled={isCreatingNewProject || isSuccessNewProject}
-                  onClick={() => {
-                    if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
-                    else router.push('/organizations')
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  htmlType="submit"
-                  loading={isCreatingNewProject || isSuccessNewProject}
-                  disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
-                  type="primary"
-                >
-                  Create project
-                </Button>
+                {step === 1 && (
+                  <>
+                    <Button
+                      type="default"
+                      disabled={isCreatingNewProject || isSuccessNewProject}
+                      onClick={() => {
+                        if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
+                        else router.push('/organizations')
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="primary"
+                      disabled={!canNextStep1 || isCreatingNewProject || isSuccessNewProject}
+                      onClick={goNextStep}
+                    >
+                      Next
+                    </Button>
+                  </>
+                )}
+                {step === 2 && (
+                  <>
+                    <Button
+                      type="default"
+                      disabled={isCreatingNewProject || isSuccessNewProject}
+                      onClick={goPreviousStep}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      type="primary"
+                      disabled={!canNextStep2 || isCreatingNewProject || isSuccessNewProject}
+                      onClick={goNextStep}
+                    >
+                      Next
+                    </Button>
+                  </>
+                )}
+                {step === 3 && (
+                  <>
+                    <Button
+                      type="default"
+                      disabled={isCreatingNewProject || isSuccessNewProject}
+                      onClick={goPreviousStep}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      htmlType="submit"
+                      loading={isCreatingNewProject || isSuccessNewProject}
+                      disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
+                      type="primary"
+                    >
+                      Create project
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

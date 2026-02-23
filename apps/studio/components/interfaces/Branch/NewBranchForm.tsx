@@ -36,6 +36,7 @@ import {
   ResourceType,
   useBranchSliderResourceLimits,
 } from 'data/resource-limits/branch-slider-resource-limits'
+import { useProjectAvailableCreationResourcesQuery } from 'data/resource-limits/project-available-creation-resources-query'
 import { useBranchesQuery } from 'data/branches/branches-query'
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 import { calculateSliderDefault } from 'lib/slider-helpers'
@@ -69,6 +70,7 @@ const FormSchema = z.object({
 })
 
 type FormState = z.infer<typeof FormSchema>
+const REQUIRED_RESOURCES: ResourceType[] = ['milli_vcpu', 'ram', 'database_size', 'iops']
 
 const NewBranchForm = ({}: NewBranchFormProps) => {
   const { slug, ref, branch } = useParams()
@@ -92,6 +94,36 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   )
 
   const { data: limits, isLoading: isLimitsLoading } = useBranchSliderResourceLimits(sourceBranch)
+  const {
+    data: availableProjectResources,
+    isLoading: isAvailableProjectResourcesLoading,
+  } = useProjectAvailableCreationResourcesQuery(
+    { orgId: slug, projectId: ref },
+    { enabled: !!slug && !!ref }
+  )
+
+  const effectiveLimits = useMemo(() => {
+    if (!limits) return undefined
+
+    const capped = { ...limits }
+    ;(Object.keys(limits) as ResourceType[]).forEach((key) => {
+      const spec = limits[key]
+      const availableRaw = availableProjectResources?.[key]
+      if (typeof availableRaw !== 'number') return
+
+      const availableDisplay = availableRaw / spec.divider
+      const cappedMax = Math.max(0, Math.min(spec.max, availableDisplay))
+      const cappedMin = Math.min(spec.min, cappedMax)
+
+      capped[key] = {
+        ...spec,
+        min: cappedMin,
+        max: cappedMax,
+      }
+    })
+
+    return capped
+  }, [limits, availableProjectResources])
 
   const { mutate: createBranch } = useBranchCreateMutation({
     onSuccess: (data) => {
@@ -142,6 +174,17 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   }, [sourceBranch])
 
   const enableStorageService = form.watch('enableStorageService')
+  const hasInsufficientResources = useMemo(() => {
+    if (!effectiveLimits) return false
+
+    const keysToCheck = [...REQUIRED_RESOURCES]
+    if (enableStorageService) keysToCheck.push('storage_size')
+
+    return keysToCheck.some((key) => {
+      const spec = effectiveLimits[key]
+      return spec.max <= 0 || spec.max < spec.min
+    })
+  }, [effectiveLimits, enableStorageService])
   useEffect(() => {
     if (!enableStorageService) form.setValue('resources.storage_size', 0)
   }, [enableStorageService])
@@ -165,17 +208,17 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   }, [branch])
 
   useEffect(() => {
-    if (!limits) return
+    if (!effectiveLimits) return
     if (areResourcesInitialized) return
 
     const values = form.getValues()
-    const keys = Object.keys(limits) as ResourceType[]
+    const keys = Object.keys(effectiveLimits) as ResourceType[]
 
     keys.forEach((key) => {
       if (key === 'storage_size' && !values.enableStorageService) return
 
       const current = values.resources[key]
-      const spec = limits[key]
+      const spec = effectiveLimits[key]
       const fallback = calculateSliderDefault(spec.min, spec.max, spec.step, 0.5) // 50%
 
       form.setValue(`resources.${key}`, current === 0 ? fallback : current, {
@@ -185,7 +228,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
     })
 
     setAreResourcesInitialized(true)
-  }, [limits, areResourcesInitialized, form])
+  }, [effectiveLimits, areResourcesInitialized, form])
 
   const handleBranchSliderChange = useCallback(
     (key: ResourceType) => (value: number[]) => {
@@ -224,8 +267,11 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   ).current
 
   async function onSubmit(values: FormState) {
-    if (!limits) {
+    if (!effectiveLimits) {
       return toast.error('Resource limits not available')
+    }
+    if (hasInsufficientResources) {
+      return toast.error('Insufficient resources to create a branch')
     }
     const isBranchNameValid = validateBranchNameLength(values.name)
     if (!isBranchNameValid) {
@@ -247,14 +293,14 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
           database_password: values.databasePassword,
           database_image_tag: values.postgresVersion as any,
           enable_file_storage: values.enableStorageService,
-          database_size: values.resources.database_size * limits.database_size.divider,
-          milli_vcpu: values.resources.milli_vcpu * limits.milli_vcpu.divider,
-          memory_bytes: values.resources.ram * limits.ram.divider,
-          iops: values.resources.iops * limits.iops.divider,
+          database_size: values.resources.database_size * effectiveLimits.database_size.divider,
+          milli_vcpu: values.resources.milli_vcpu * effectiveLimits.milli_vcpu.divider,
+          memory_bytes: values.resources.ram * effectiveLimits.ram.divider,
+          iops: values.resources.iops * effectiveLimits.iops.divider,
 
           // only include when enabled
           ...(values.enableStorageService
-            ? { storage_size: values.resources.storage_size * limits.storage_size.divider }
+            ? { storage_size: values.resources.storage_size * effectiveLimits.storage_size.divider }
             : {}),
         }
       : undefined
@@ -321,18 +367,23 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
 
   const renderSliders = useCallback(() => {
     
-    if (!limits) return
+    if (!effectiveLimits) return
     return (
       <div className="mt-4 grid grid-cols-1 w-full">
         <div className="rounded-lg border p-5 space-y-4">
           <p className="font-medium text-sm text-foreground">Configure your branch resources</p>
+          {hasInsufficientResources && (
+            <p className="text-xs text-destructive">
+              Not enough available resources to create a branch with the current limits.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 gap-y-4">
-            {(Object.keys(limits) as ResourceType[]).map((key) => {
+            {(Object.keys(effectiveLimits) as ResourceType[]).map((key) => {
               const fieldError = (form.formState.errors as any)?.resources?.[key]?.message as
               | string
               | undefined
-              const { label, min, max, step, unit } = limits[key]
+              const { label, min, max, step, unit } = effectiveLimits[key]
               const value = form.watch(`resources.${key}`)
               const enabled = key !== 'storage_size' || enableStorageService
               return (
@@ -376,7 +427,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
         </div>
       </div>
     )
-  }, [limits, adjustableResources, enableStorageService])
+  }, [effectiveLimits, adjustableResources, enableStorageService, hasInsufficientResources])
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -405,7 +456,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                 htmlType="submit"
                 type="primary"
                 loading={newBranchLoading}
-                disabled={newBranchLoading}
+                disabled={newBranchLoading || hasInsufficientResources}
               >
                 Create branch
               </Button>
@@ -761,7 +812,11 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
               </div>
             </section>
           </div>
-          {!isLimitsLoading && adjustableResources && areResourcesInitialized && renderSliders()}
+          {!isLimitsLoading &&
+            !isAvailableProjectResourcesLoading &&
+            adjustableResources &&
+            areResourcesInitialized &&
+            renderSliders()}
         </Panel.Content>
       </Panel>
     </form>

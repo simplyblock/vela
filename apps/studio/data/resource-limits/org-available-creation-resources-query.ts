@@ -2,6 +2,7 @@ import { get, handleError } from '../fetchers'
 import { ResponseError } from '../../types'
 import { useQuery, UseQueryOptions } from '@tanstack/react-query'
 import { resourceLimitsKeys } from './keys'
+import type { components as VelaComponents } from '../vela/vela-schema'
 
 export interface OrgAvailableCreationResourcesVariables {
   orgId?: string
@@ -21,10 +22,10 @@ async function getOrgAvailableCreationResources(
     signal,
   })
   if (error) handleError(error)
-  return data
+  return data as OrgAvailableCreationResourcesData
 }
-
-export type OrgAvailableCreationResourcesData = Awaited<ReturnType<typeof getOrgAvailableCreationResources>>
+//Ebrahim: FIXME: platform OpenAPI currently types this endpoint incorrectly.
+export type OrgAvailableCreationResourcesData = VelaComponents['schemas']['ResourceLimitsPublic']
 export type OrgAvailableCreationResourcesError = ResponseError
 
 export const useOrgAvailableCreationResourcesQuery = <TData = OrgAvailableCreationResourcesData>(

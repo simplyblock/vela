@@ -164,6 +164,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{organization_id}/projects/{project_id}/branches/{branch_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Organizations:Projects:Branch:Restore */
+        post: operations["organizations:projects:branch:restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{organization_id}/projects/{project_id}/branches/{branch_id}/reset-password": {
         parameters: {
             query?: never;
@@ -19021,6 +19038,15 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** BranchRestore */
+        BranchRestore: {
+            /**
+             * ULID
+             * Format: ulid
+             * @description A ULID (Universally Unique Lexicographically Sortable Identifier)
+             */
+            backup_id: string;
+        };
         /** BranchRestoreParameters */
         BranchRestoreParameters: {
             /**
@@ -19469,8 +19495,6 @@ export interface components {
         ResourcesPayload: {
             resources: components["schemas"]["ResourceLimitsPublic"];
         };
-        /** @enum {string} */
-        ResponseType: "empty" | "full";
         /** RoleCreate */
         RoleCreate: {
             /** Name */
@@ -22222,6 +22246,70 @@ export interface operations {
             };
         };
     };
+    "organizations:projects:branch:restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organization_id: string;
+                project_id: string;
+                branch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BranchRestore"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPError"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPError"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPError"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     "organizations:projects:branch:reset-password": {
         parameters: {
             query?: never;
@@ -24522,7 +24610,7 @@ export interface operations {
     replace_org_backup_schedule: {
         parameters: {
             query?: {
-                response?: components["schemas"]["ResponseType"];
+                response?: "empty" | "full";
             };
             header?: never;
             path: {
@@ -24559,7 +24647,7 @@ export interface operations {
     add_org_backup_schedule: {
         parameters: {
             query?: {
-                response?: components["schemas"]["ResponseType"];
+                response?: "empty" | "full";
             };
             header?: never;
             path: {
@@ -24629,7 +24717,7 @@ export interface operations {
     replace_branch_backup_schedule: {
         parameters: {
             query?: {
-                response?: components["schemas"]["ResponseType"];
+                response?: "empty" | "full";
             };
             header?: never;
             path: {
@@ -24666,7 +24754,7 @@ export interface operations {
     add_branch_backup_schedule: {
         parameters: {
             query?: {
-                response?: components["schemas"]["ResponseType"];
+                response?: "empty" | "full";
             };
             header?: never;
             path: {

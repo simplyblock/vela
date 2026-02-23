@@ -68,6 +68,7 @@ export const BranchResizeModal: React.FC<Props> = ({
   isDisabled
 }) => {
   const [open, setOpen] = useState(false)
+  const formatSliderDisplay = (value: number) => value.toFixed(2)
   const { data: effectiveBranchLimits } = useEffectiveBranchLimitsQuery({
     orgRef: orgSlug,
     projectRef,
@@ -500,11 +501,12 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
                     <div className="mt-2 text-xs text-foreground-muted font-mono space-y-1">
                       {ramInfo.usageDisplay !== undefined && (
                         <div>
-                          Current RAM usage: {ramInfo.usageDisplay} {ramInfo.unit}
+                          Current RAM usage: {formatSliderDisplay(ramInfo.usageDisplay)} {ramInfo.unit}
                         </div>
                       )}
                       <div>
-                        Allowed RAM range: {ramInfo.minDisplay} - {ramInfo.maxDisplay} {ramInfo.unit}
+                        Allowed RAM range: {formatSliderDisplay(ramInfo.minDisplay)} -{' '}
+                        {formatSliderDisplay(ramInfo.maxDisplay)} {ramInfo.unit}
                       </div>
                     </div>
                   )}

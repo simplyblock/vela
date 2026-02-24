@@ -52,7 +52,7 @@ export const useOrganizationMeteringQuery = <TData = OrganizationUsageData>(
 ) => {
   return useQuery<OrganizationUsageData, OrganizationUsageError, TData>({
     ...options,
-    queryKey: resourcesKeys.organizationUsage(orgRef), // FIXME: @Chris do we want to cache this?
+    queryKey: resourcesKeys.organizationMetering(orgRef, start, end),
     staleTime: 60000,
     queryFn: async (context: QueryFunctionContext) =>
       getOrganizationUsage({ orgRef, start, end }, context.signal),

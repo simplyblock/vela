@@ -3,8 +3,10 @@ import { forwardRef, HTMLAttributes, useMemo } from 'react'
 
 import { useParams } from 'common'
 import { GenericSkeletonLoader } from 'components/ui/ShimmeringLoader'
-import { useProjectSettingsV2Query } from 'data/config/project-settings-v2-query'
+import { useReadReplicasQuery } from 'data/read-replicas/replicas-query'
+import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
 import { pluckObjectFields } from 'lib/helpers'
+import { useDatabaseSelectorStateSnapshot } from 'state/database-selector'
 import { cn } from 'ui'
 import type { projectKeys } from './Connect.types'
 import { getConnectionStrings } from './DatabaseSettings.utils'
@@ -24,13 +26,18 @@ interface ConnectContentTabProps extends HTMLAttributes<HTMLDivElement> {
 
 const ConnectTabContent = forwardRef<HTMLDivElement, ConnectContentTabProps>(
   ({ projectKeys, filePath, ...props }, ref) => {
-    const { slug: orgSlug, ref: projectRef } = useParams()
+    const { ref: projectRef } = useParams()
+    const { data: branch } = useSelectedBranchQuery()
+    const state = useDatabaseSelectorStateSnapshot()
+    const { data: databases } = useReadReplicasQuery({ branch })
 
-    const { data: settings } = useProjectSettingsV2Query({ orgRef: orgSlug, projectRef })
+    const selectedDatabase =
+      (databases ?? []).find((db) => db.identifier === state.selectedDatabaseId) ??
+      (databases ?? []).find((db) => db.identifier === branch?.project_id)
 
     const DB_FIELDS = ['db_host', 'db_name', 'db_port', 'db_user', 'inserted_at']
     const emptyState = { db_user: '', db_host: '', db_port: '', db_name: '' }
-    const connectionInfo = pluckObjectFields(settings || emptyState, DB_FIELDS)
+    const connectionInfo = pluckObjectFields(selectedDatabase || emptyState, DB_FIELDS)
 
     const connectionStrings = getConnectionStrings({
       connectionInfo,

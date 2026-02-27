@@ -3,9 +3,10 @@ import { forwardRef, HTMLAttributes, useMemo } from 'react'
 
 import { useParams } from 'common'
 import { GenericSkeletonLoader } from 'components/ui/ShimmeringLoader'
-import { useProjectSettingsV2Query } from 'data/config/project-settings-v2-query'
-import { usePgbouncerConfigQuery } from 'data/database/pgbouncer-config-query'
+import { useReadReplicasQuery } from 'data/read-replicas/replicas-query'
+import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
 import { pluckObjectFields } from 'lib/helpers'
+import { useDatabaseSelectorStateSnapshot } from 'state/database-selector'
 import { cn } from 'ui'
 import type { projectKeys } from './Connect.types'
 import { getConnectionStrings } from './DatabaseSettings.utils'
@@ -18,33 +19,33 @@ interface ConnectContentTabProps extends HTMLAttributes<HTMLDivElement> {
     sessionShared: string
     transactionDedicated?: string
     sessionDedicated?: string
+    ipv4SupportedForDedicatedPooler: boolean
     direct?: string
   }
 }
 
 const ConnectTabContent = forwardRef<HTMLDivElement, ConnectContentTabProps>(
   ({ projectKeys, filePath, ...props }, ref) => {
-    const { slug: orgSlug, ref: projectRef, branch: branchId } = useParams()
+    const { ref: projectRef } = useParams()
+    const { data: branch } = useSelectedBranchQuery()
+    const state = useDatabaseSelectorStateSnapshot()
+    const { data: databases } = useReadReplicasQuery({ branch })
 
-    const { data: settings } = useProjectSettingsV2Query({ orgRef: orgSlug, projectRef })
-    const { data: pgbouncerConfig } = usePgbouncerConfigQuery({ orgRef: orgSlug, projectRef, branchId })
+    const selectedDatabase =
+      (databases ?? []).find((db) => db.identifier === state.selectedDatabaseId) ??
+      (databases ?? []).find((db) => db.identifier === branch?.project_id)
 
     const DB_FIELDS = ['db_host', 'db_name', 'db_port', 'db_user', 'inserted_at']
     const emptyState = { db_user: '', db_host: '', db_port: '', db_name: '' }
-    const connectionInfo = pluckObjectFields(settings || emptyState, DB_FIELDS)
-    const poolingConfigurationDedicated = pgbouncerConfig
+    const connectionInfo = pluckObjectFields(selectedDatabase || emptyState, DB_FIELDS)
 
-    const connectionStringsShared = getConnectionStrings({
+    const connectionStrings = getConnectionStrings({
       connectionInfo,
-      poolingInfo: {
-        connectionString: '',
-        db_host: '',
-        db_name: '',
-        db_port: 0,
-        db_user: '',
-      },
       metadata: { projectRef },
     })
+
+    const transactionShared = connectionStrings.direct.uri
+    const sessionShared = connectionStrings.direct.uri
 
     const ContentFile = useMemo(() => {
       return dynamic<ConnectContentTabProps>(() => import(`./content/${filePath}/content`), {
@@ -62,9 +63,10 @@ const ConnectTabContent = forwardRef<HTMLDivElement, ConnectContentTabProps>(
           projectKeys={projectKeys}
           filePath={filePath}
           connectionStringPooler={{
-            transactionShared: connectionStringsShared.pooler.uri,
-            sessionShared: connectionStringsShared.pooler.uri.replace('6543', '5432'),
-            direct: connectionStringsShared.direct.uri,
+            transactionShared,
+            sessionShared,
+            ipv4SupportedForDedicatedPooler: false,
+            direct: connectionStrings.direct.uri,
           }}
         />
       </div>

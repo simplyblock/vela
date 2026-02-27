@@ -34,7 +34,7 @@ DATABASE_URL="${connectionStringPooler.transactionShared}"
 # DATABASE_URL="${connectionStringPooler.transactionDedicated}"
         `
               : `
-DATABASE_URL="${connectionStringPooler.transactionShared}"
+DATABASE_URL="${connectionStringPooler.transactionShared || connectionStringPooler.direct}"
 `}
         </SimpleCodeBlock>
       </ConnectTabContent>

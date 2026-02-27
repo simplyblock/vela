@@ -1,27 +1,28 @@
-// components/interfaces/Project/ProjectResourcesBadge.tsx
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import { Tooltip, TooltipTrigger, TooltipContent, cn } from 'ui'
-import { useProjectLimitsQuery } from 'data/resource-limits/project-limits-query'
-import { useProjectUsageQuery } from 'data/resources/project-usage-query'
+import { useProjectLimitsQuery, type ProjectLimitsData } from 'data/resource-limits/project-limits-query'
+import {
+  useProjectAvailableCreationResourcesQuery,
+  type ProjectAvailableCreationResourcesData,
+} from 'data/resource-limits/project-available-creation-resources-query'
 import { divideValue, formatResource } from './utils'
 
-type ProjectLimitsItem = {
-  resource: 'milli_vcpu' | 'ram' | 'iops' | 'storage_size' | 'database_size'
-  max_total: number
-  max_per_branch: number
-}
-
-type ProjectUsageShape = {
-  milli_vcpu?: number | null | undefined
-  ram?: number | null | undefined
-  iops?: number | null | undefined
-  storage_size?: number | null | undefined
-  database_size?: number | null | undefined
-}
+type ProjectLimitItem = NonNullable<ProjectLimitsData>[number]
+type ProjectAllocationKey = keyof ProjectAvailableCreationResourcesData 
+const RESOURCE_DEFS: Array<{
+  key: ProjectAllocationKey
+  label: string
+}> = [
+  { key: 'milli_vcpu', label: 'vCPU' },
+  { key: 'ram', label: 'RAM' },
+  { key: 'database_size', label: 'Database' },
+  { key: 'storage_size', label: 'Storage' },
+  { key: 'iops', label: 'IOPS' },
+]
 
 /**
- * Shows project resource usage for the last minute.
- * Fetches its own limits + usage based on orgRef + projectRef.
+ * Shows project resource allocation.
+ * Allocation is computed as: max_total - available.
  */
 export const ProjectResourcesBadge = ({
   orgRef,
@@ -32,133 +33,58 @@ export const ProjectResourcesBadge = ({
   projectRef?: string
   size?: number
 }) => {
-  // Fix "last minute" window at mount time so the query key stays stable
-  const [timeRange] = useState(() => {
-    const now = Date.now() - 60_000
-    return {
-      start: new Date(Math.floor(now / 60_000) * 60_000).toISOString(),
-    }
-  })
-
   const limitsQuery = useProjectLimitsQuery(
     { orgRef: orgRef!, projectRef: projectRef! },
     { enabled: !!orgRef && !!projectRef }
   )
 
-  const usageQuery = useProjectUsageQuery(
+  const availableQuery = useProjectAvailableCreationResourcesQuery(
     {
-      orgRef: orgRef!,
-      projectRef: projectRef!,
-      start: timeRange.start,
+      orgId: orgRef!,
+      projectId: projectRef!,
     },
     { enabled: !!orgRef && !!projectRef }
   )
 
-  const limitsData = limitsQuery.data as ProjectLimitsItem[] | undefined
-  const usageData = usageQuery.data as ProjectUsageShape | undefined
-
   const rows = useMemo(() => {
-    if (!limitsData && !usageData) return []
+    const limitsData = limitsQuery.data
+    const availableData = availableQuery.data
 
-    const findMax = (resourceName: string) => {
-      if (!limitsData) return null
-      const found = limitsData.find((x) => x.resource === resourceName)
-      return found ? found.max_total : null
-    }
+    if (!limitsData && !availableData) return []
 
-    const out: {
-      key: string
-      label: string
-      percent: number
-      usedDisplay: string
-      maxDisplay: string
-    }[] = []
+    return RESOURCE_DEFS.map((def) => {
+      const limitEntry = Array.isArray(limitsData)
+        ? limitsData.find((limit: ProjectLimitItem) => limit.resource === def.key)
+        : undefined
+      if (!limitEntry) return null
+      const maxRaw = typeof limitEntry?.max_total === 'number' ? limitEntry.max_total : null
 
-    // milli_vcpu -> vCPU
-    {
-      const maxRaw = findMax('milli_vcpu')
-      const usedRaw = usageData?.milli_vcpu ?? null
-      const max = divideValue('milli_vcpu', maxRaw)
-      const used = divideValue('milli_vcpu', usedRaw) ?? 0
-      const percent = max ? Math.max(0, Math.min(100, (used / max) * 100)) : 0
-      out.push({
-        key: 'milli_vcpu',
-        label: 'vCPU',
+      const availableValue = availableData?.[def.key]
+      const availableRaw = typeof availableValue === 'number' ? availableValue : 0
+
+      const allocatedRaw = maxRaw == null ? null : Math.max(0, maxRaw - availableRaw)
+
+      const maxDisplayNumber = maxRaw == null ? null : divideValue(def.key, maxRaw)
+      const allocatedDisplayNumber = divideValue(def.key, allocatedRaw) ?? 0
+
+      const percent =
+        maxDisplayNumber != null && maxDisplayNumber > 0
+          ? Math.max(0, Math.min(100, (allocatedDisplayNumber / maxDisplayNumber) * 100))
+          : 0
+
+      return {
+        key: def.key,
+        label: def.label,
         percent,
-        usedDisplay: formatResource('milli_vcpu', usedRaw),
-        maxDisplay: max == null ? '—' : formatResource('milli_vcpu', maxRaw),
-      })
-    }
+        allocatedDisplay: formatResource(def.key, allocatedRaw),
+        maxDisplay: maxRaw == null ? 'unlimited' : formatResource(def.key, maxRaw),
+        hasData: allocatedRaw !== null || maxRaw !== null,
+      }
+    }).filter((row): row is NonNullable<typeof row> => row !== null && row.hasData)
+  }, [limitsQuery.data, availableQuery.data])
 
-    // ram -> GiB
-    {
-      const maxRaw = findMax('ram')
-      const usedRaw = usageData?.ram ?? null
-      const max = divideValue('ram', maxRaw)
-      const used = divideValue('ram', usedRaw) ?? 0
-      const percent = max ? Math.max(0, Math.min(100, (used / max) * 100)) : 0
-      out.push({
-        key: 'ram',
-        label: 'RAM',
-        percent,
-        usedDisplay: formatResource('ram', usedRaw),
-        maxDisplay: max == null ? '—' : formatResource('ram', maxRaw),
-      })
-    }
-
-    // database_size -> GB
-    {
-      const maxRaw = findMax('database_size')
-      const usedRaw = usageData?.database_size ?? null
-      const max = divideValue('database_size', maxRaw)
-      const used = divideValue('database_size', usedRaw) ?? 0
-      const percent = max ? Math.max(0, Math.min(100, (used / max) * 100)) : 0
-      out.push({
-        key: 'database_size',
-        label: 'Database',
-        percent,
-        usedDisplay: formatResource('database_size', usedRaw),
-        maxDisplay: max == null ? '—' : formatResource('database_size', maxRaw),
-      })
-    }
-
-    // storage_size -> GB
-    {
-      const maxRaw = findMax('storage_size')
-      const usedRaw = usageData?.storage_size ?? null
-      const max = divideValue('storage_size', maxRaw)
-      const used = divideValue('storage_size', usedRaw) ?? 0
-      const percent = max ? Math.max(0, Math.min(100, (used / max) * 100)) : 0
-      out.push({
-        key: 'storage_size',
-        label: 'Storage',
-        percent,
-        usedDisplay: formatResource('storage_size', usedRaw),
-        maxDisplay: max == null ? '—' : formatResource('storage_size', maxRaw),
-      })
-    }
-
-    // iops -> numeric
-    {
-      const maxRaw = findMax('iops')
-      const usedRaw = usageData?.iops ?? null
-      const max = typeof maxRaw === 'number' ? maxRaw : null
-      const used = typeof usedRaw === 'number' ? usedRaw : 0
-      const percent = max ? Math.max(0, Math.min(100, (used / max) * 100)) : 0
-      out.push({
-        key: 'iops',
-        label: 'IOPS',
-        percent,
-        usedDisplay: maxRaw == null ? (usedRaw == null ? '—' : String(usedRaw)) : String(usedRaw),
-        maxDisplay: max == null ? '—' : String(max),
-      })
-    }
-
-    return out.filter((r) => r.usedDisplay !== '—' || r.maxDisplay !== '—')
-  }, [limitsData, usageData])
-
-  const mostUsed = useMemo(() => {
-    if (!rows || rows.length === 0) return null
+  const mostAllocated = useMemo(() => {
+    if (rows.length === 0) return null
     const sorted = [...rows].sort((a, b) => b.percent - a.percent)
     return sorted[0]
   }, [rows])
@@ -166,7 +92,7 @@ export const ProjectResourcesBadge = ({
   const stroke = 4
   const radius = Math.max(4, (size - stroke) / 2)
   const circumference = 2 * Math.PI * radius
-  const pct = mostUsed ? Math.max(0, Math.min(100, mostUsed.percent)) : 0
+  const pct = mostAllocated ? Math.max(0, Math.min(100, mostAllocated.percent)) : 0
   const dash = (circumference * pct) / 100
   const remaining = Math.max(0, circumference - dash)
 
@@ -187,7 +113,7 @@ export const ProjectResourcesBadge = ({
     }
   }
 
-  const loading = limitsQuery.isLoading || usageQuery.isLoading
+  const loading = limitsQuery.isLoading || availableQuery.isLoading
   const empty = rows.length === 0 && !loading
 
   return (
@@ -195,7 +121,9 @@ export const ProjectResourcesBadge = ({
       <TooltipTrigger asChild>
         <button
           aria-label={
-            mostUsed ? `${mostUsed.label} usage ${Math.round(mostUsed.percent)}%` : 'No usage info'
+            mostAllocated
+              ? `${mostAllocated.label} allocation ${Math.round(mostAllocated.percent)}%`
+              : 'No allocation info'
           }
           className="inline-flex items-center gap-2 p-0 bg-transparent border-0"
         >
@@ -211,7 +139,7 @@ export const ProjectResourcesBadge = ({
                   strokeLinecap="round"
                   strokeDasharray={`${dash} ${remaining}`}
                   transform={`rotate(-90)`}
-                  className={resourceColor(mostUsed?.key)}
+                  className={resourceColor(mostAllocated?.key)}
                   style={{ transition: 'stroke-dasharray 240ms ease' }}
                 />
               </g>
@@ -221,7 +149,7 @@ export const ProjectResourcesBadge = ({
               className="absolute inset-0 flex items-center justify-center font-medium"
               style={{ pointerEvents: 'none', fontSize: 10 }}
             >
-              {loading ? '…' : empty ? '—' : `${Math.round(pct)}%`}
+              {loading ? '...' : empty ? '--' : `${Math.round(pct)}%`}
             </div>
           </div>
         </button>
@@ -229,31 +157,29 @@ export const ProjectResourcesBadge = ({
 
       <TooltipContent side="top" align="center" className="min-w-[240px] p-3">
         <div className="space-y-2">
-          <div className="text-xs text-foreground-muted">
-            Project resource usage (last minute)
-          </div>
+          <div className="text-xs text-foreground-muted">Project resource allocation (limits - available)</div>
 
           {loading ? (
-            <div className="text-sm text-foreground-light">Loading usage…</div>
+            <div className="text-sm text-foreground-light">Loading allocation...</div>
           ) : empty ? (
             <div className="text-sm text-foreground-light">No resource info available</div>
           ) : (
-            rows.map((r) => {
-              const percent = Math.round(r.percent)
+            rows.map((row) => {
+              const percent = Math.round(row.percent)
               return (
-                <div key={r.key} className="space-y-1">
+                <div key={row.key} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-[12px]">{r.label}</span>
-                      <span className="text-foreground-muted text-[11px]">({r.usedDisplay})</span>
+                      <span className="font-medium text-[12px]">{row.label}</span>
+                      <span className="text-foreground-muted text-[11px]">({row.allocatedDisplay})</span>
                     </div>
-                    <div className="text-[11px] text-foreground-muted">{r.maxDisplay}</div>
+                    <div className="text-[11px] text-foreground-muted">{row.maxDisplay}</div>
                   </div>
 
                   <div className="w-full h-2 rounded bg-surface-200 overflow-hidden">
                     <div
                       style={{ width: `${percent}%` }}
-                      className={cn('h-full', resourceColor(r.key), 'transition-all duration-200')}
+                      className={cn('h-full', resourceColor(row.key), 'transition-all duration-200')}
                     />
                   </div>
                 </div>

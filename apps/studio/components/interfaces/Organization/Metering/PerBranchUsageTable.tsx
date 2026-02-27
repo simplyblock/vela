@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
 import {
   Table,
@@ -14,7 +15,7 @@ import BranchEnvBadge from 'components/interfaces/Branch/BranchEnvBadge'
 
 
 import { useProjectsQuery } from 'data/projects/projects-query'
-import { useBranchQuery } from 'data/branches/branch-query'
+import { getBranch } from 'data/branches/branch-query'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { formatForUnit } from 'components/interfaces/Branch/utils'
 
@@ -114,23 +115,24 @@ const PerBranchUsageTable = ({ orgRef, perBranchUsage, loading }: Props) => {
     return rows.map(r => ({ project_id: r.project_id, branch_id: r.branch_id }))
   }, [rows])
 
-  const branchQueries = branchPairs.map(({ project_id, branch_id }) =>
-    useBranchQuery({
-      orgRef,
-      projectRef: project_id,
-      branchRef: branch_id,
-    })
-  )
+  const { data: branches = [], isLoading: isBranchLoading } = useQuery({
+    queryKey: ['metering-branch-details', orgRef, branchPairs],
+    queryFn: ({ signal }) =>
+      Promise.all(
+        branchPairs.map(({ project_id, branch_id }) =>
+          getBranch({ orgRef, projectRef: project_id, branchRef: branch_id }, signal)
+        )
+      ),
+    enabled: Boolean(orgRef) && branchPairs.length > 0,
+  })
 
   const branchesById = useMemo(() => {
     const map: Record<string, any> = {}
-    branchQueries.forEach(q => {
-      if (q.data) map[q.data.id] = q.data
+    branches.forEach((branch) => {
+      if (branch) map[branch.id] = branch
     })
     return map
-  }, [branchQueries])
-
-  const isBranchLoading = branchQueries.some(q => q.isLoading)
+  }, [branches])
 
   // Filtering
   const filteredRows = useMemo(() => {

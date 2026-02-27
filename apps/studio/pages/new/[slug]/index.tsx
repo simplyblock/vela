@@ -53,6 +53,7 @@ import { calculateSliderDefault } from '../../../lib/slider-helpers'
 /* ------------------------------------------------------------------ */
 
 type SliderKey = 'vcpu' | 'ram' | 'iops' | 'nvme' | 'storage'
+type CreateProjectStep = 1 | 2 | 3
 
 const sliderOrder = ['vcpu', 'ram', 'iops', 'nvme', 'storage'] as const
 
@@ -63,6 +64,16 @@ const LABELS: Record<SliderKey, string> = {
   iops: 'IOPS',
   storage: 'Storage',
 }
+
+const CREATE_PROJECT_STEPS: Array<{
+  step: CreateProjectStep
+  title: string
+  description: string
+}> = [
+  { step: 1, title: 'Basics', description: 'Choose organization and project identity.' },
+  { step: 2, title: 'Availability', description: 'Choose storage and availability options.' },
+  { step: 3, title: 'Resource limits', description: 'Configure project-wide and per-branch ceilings.' },
+]
 
 type LimitCfg = {
   label: string
@@ -205,6 +216,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
 
   const [isComputeCostsConfirmationModalVisible, setIsComputeCostsConfirmationModalVisible] =
     useState(false)
+  const [step, setStep] = useState<CreateProjectStep>(1)
 
   const { data: organizations, isSuccess: isOrganizationsSuccess } = useOrganizationsQuery()
   const isAdmin = useCheckPermissions('env:projects:create')
@@ -234,11 +246,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'milli_vcpu': {
           const k: SliderKey = 'vcpu'
           const divider = 1000
+          const backendStep = systemLimitDef?.step ?? 100
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 0.1,
+            step: backendStep / divider,
             unit: 'vCPU',
             divider,
           }
@@ -247,11 +260,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'ram': {
           const k: SliderKey = 'ram'
           const divider = GIB
+          const backendStep = systemLimitDef?.step ?? 256 * 1024 * 1024
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 0.25, // 256MiB
+            step: backendStep / divider,
             unit: 'GiB',
             divider,
           }
@@ -263,7 +277,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
             label: LABELS[k],
             min: systemLimitDef?.min ?? 0,
             max: def.max_total ?? 0,
-            step: Math.max(1, systemLimitDef?.step ?? 100),
+            step: systemLimitDef?.step ?? 100,
             unit: 'IOPS',
             divider: 1,
           }
@@ -272,11 +286,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'database_size': {
           const k: SliderKey = 'nvme'
           const divider = 1_000_000_000 // 1 GB
+          const backendStep = systemLimitDef?.step ?? divider
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 1,
+            step: backendStep / divider,
             unit: 'GB',
             divider,
           }
@@ -285,11 +300,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
         case 'storage_size': {
           const k: SliderKey = 'storage'
           const divider = 1_000_000_000 // 1 GB
+          const backendStep = systemLimitDef?.step ?? divider
           map[k] = {
             label: LABELS[k],
             min: (systemLimitDef?.min ?? 0) / divider,
             max: (def.max_total ?? 0) / divider,
-            step: 1,
+            step: backendStep / divider,
             unit: 'GB',
             divider,
           }
@@ -469,6 +485,73 @@ const CreateProjectPage: NextPageWithLayout = () => {
     if (projectName) form.setValue('projectName', projectName || '')
   }, [slug, projectName, form])
 
+  const includeFileStorage = form.watch('includeFileStorage')
+  const watchedProjectName = form.watch('projectName')
+  const watchedOrganization = form.watch('organization')
+  const watchedPerBranchLimits = form.watch('perBranchLimits')
+  const watchedProjectLimits = form.watch('projectLimits')
+
+  const shouldValidateOrganization =
+    isAdmin && !isInvalidSlug && (organizations?.length ?? 0) > 0
+
+  const getStepFields = (currentStep: CreateProjectStep) => {
+    if (currentStep === 1) {
+      const fields: string[] = ['projectName']
+      if (shouldValidateOrganization) fields.push('organization')
+      return fields
+    }
+    if (currentStep === 2) {
+      return []
+    }
+    if (currentStep === 3) {
+      return sliderKeys.flatMap((key) => [`projectLimits.${key}`, `perBranchLimits.${key}`])
+    }
+    return []
+  }
+
+  const validateStep = async (currentStep: CreateProjectStep) => {
+    const fields = getStepFields(currentStep)
+    if (fields.length === 0) return true
+    return form.trigger(fields as any)
+  }
+
+  const goNextStep = async () => {
+    const valid = await validateStep(step)
+    if (!valid) return
+    if (step < 3) setStep((prev) => (prev + 1) as CreateProjectStep)
+  }
+
+  const goPreviousStep = () => {
+    if (step > 1) setStep((prev) => (prev - 1) as CreateProjectStep)
+  }
+
+  const hasStep2Errors = sliderKeys.some(
+    (key) =>
+      Boolean((form.formState.errors.projectLimits as any)?.[key]) ||
+      Boolean((form.formState.errors.perBranchLimits as any)?.[key])
+  )
+
+  const hasStep2InvalidValues = sliderKeys.some((key) => {
+    if (!limitConfig) return true
+    if (key === 'storage' && !includeFileStorage) return false
+
+    const cfg = limitConfig[key]
+    if (!cfg) return true
+    const perBranchValue = (watchedPerBranchLimits as any)?.[key]
+    const projectValue = (watchedProjectLimits as any)?.[key]
+    if (typeof perBranchValue !== 'number' || typeof projectValue !== 'number') return true
+    if (perBranchValue < cfg.min || perBranchValue > cfg.max) return true
+    if (projectValue < cfg.min || projectValue > cfg.max) return true
+    if (projectValue < perBranchValue) return true
+    return false
+  })
+
+  const canNextStep1 =
+    Boolean(watchedProjectName?.trim()) &&
+    (!shouldValidateOrganization || Boolean(watchedOrganization))
+
+  const canNextStep2 = true
+
   // Submit handlers
   const additionalMonthlySpend = 0
   const onSubmitWithComputeCostsConfirmation = async (values: CreateProjectForm) => {
@@ -580,8 +663,45 @@ const CreateProjectPage: NextPageWithLayout = () => {
               {orgNotFound && <OrgNotFound slug={slug} />}
             </section>
 
-            {/* Top row: Organization / Project */}
-            <section className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:items-start">
+            <section className="rounded-lg border p-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                {CREATE_PROJECT_STEPS.map((stepMeta) => {
+                  const isActive = stepMeta.step === step
+                  const isCompleted = stepMeta.step < step
+
+                  return (
+                    <div key={stepMeta.step} className="flex items-start gap-3">
+                      <div
+                        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${
+                          isCompleted
+                            ? 'border-brand bg-brand text-white'
+                            : isActive
+                            ? 'border-brand text-brand'
+                            : 'border-default text-foreground-muted'
+                        }`}
+                      >
+                        {stepMeta.step}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p
+                          className={`text-sm font-medium ${
+                            isActive ? 'text-foreground' : 'text-foreground-muted'
+                          }`}
+                        >
+                          {stepMeta.title}
+                        </p>
+                        <p className="text-xs text-foreground-muted">{stepMeta.description}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+
+            {step === 1 && (
+              <>
+                {/* Top row: Organization / Project */}
+                <section className="grid grid-cols-1 gap-10 xl:grid-cols-2 xl:items-start">
               <div className="space-y-6">
                 {isAdmin && !isInvalidSlug && (
                   <FormField_Shadcn_
@@ -653,10 +773,14 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   )}
                 />
               </div>
-            </section>
+                </section>
+              </>
+            )}
 
-            {/* Row 2: Per-branch / Project limits */}
-            <section className="grid gap-10 xl:grid-cols-2">
+            {step === 3 && (
+              <>
+                {/* Resource limits */}
+                <section className="grid gap-10 xl:grid-cols-2">
               {/* Project */}
               <section className="rounded-lg border p-5 space-y-4">
                 <p className="font-medium text-sm text-foreground">Project limits</p>
@@ -664,10 +788,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   <p className="text-sm text-foreground-muted">Loading limits…</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-4">
-                    {sliderOrder.map((key) => {
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .map((key) => {
                       const cfg = limitConfig[key]!
-                      const value = (form.watch(`projectLimits.${key}`) ?? cfg.min) as number
-                      const storageDisabled = key === 'storage' && !form.watch('includeFileStorage')
+                      const value = (watchedProjectLimits?.[key] ?? cfg.min) as number
+                      const storageDisabled = key === 'storage' && !includeFileStorage
 
                       // Fetch server/form validation error for this field (project)
                       const projectErrors = (form.formState.errors.projectLimits ?? {}) as Record<
@@ -702,7 +828,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
                           }
                         />
                       )
-                    })}
+                      })}
                   </div>
                 )}
                 <p className="text-[11px] leading-snug text-foreground-muted">
@@ -716,10 +842,12 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   <p className="text-sm text-foreground-muted">Loading limits…</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-y-4">
-                    {sliderOrder.map((key) => {
+                    {sliderOrder
+                      .filter((key) => sliderKeys.includes(key))
+                      .map((key) => {
                       const cfg = limitConfig[key]!
-                      const value = (form.watch(`perBranchLimits.${key}`) ?? cfg.min) as number
-                      const storageDisabled = key === 'storage' && !form.watch('includeFileStorage')
+                      const value = (watchedPerBranchLimits?.[key] ?? cfg.min) as number
+                      const storageDisabled = key === 'storage' && !includeFileStorage
 
                       // Fetch server/form validation error for this field (per-branch)
                       const perBranchErrors = (form.formState.errors.perBranchLimits ??
@@ -751,7 +879,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
                           }
                         />
                       )
-                    })}
+                      })}
                   </div>
                 )}
                 <p className="text-[11px] leading-snug text-foreground-muted">
@@ -759,12 +887,14 @@ const CreateProjectPage: NextPageWithLayout = () => {
                   performance.
                 </p>
               </section>
-            </section>
+                </section>
+              </>
+            )}
 
-            {/* Row 3: Availability & storage */}
-            <section className="rounded-lg border p-5 space-y-6">
-              <div className="space-y-4">
-                <p className="font-medium text-sm text-foreground">Availability &amp; storage</p>
+            {step === 2 && (
+              <section className="rounded-lg border p-5 space-y-6">
+                  <div className="space-y-4">
+                    <p className="font-medium text-sm text-foreground">Availability &amp; storage</p>
 
                 <div className="flex items-start gap-3 text-sm">
                   <FormField_Shadcn_
@@ -834,42 +964,83 @@ const CreateProjectPage: NextPageWithLayout = () => {
                     </div>
                   )}
                 />
-              </div>
+                  </div>
 
-              <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
-                <p>
-                  This project may incur usage-based costs once created. Review your organization's
-                  billing plan and limits.{' '}
-                  <Link href="https://vela.run/" target="_blank" className="underline">
-                    Learn more
-                  </Link>
-                  .
-                </p>
-              </div>
-            </section>
+                  <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
+                    <p>
+                      This project may incur usage-based costs once created. Review your
+                      organization's billing plan and limits.{' '}
+                      <Link href="https://vela.run/" target="_blank" className="underline">
+                        Learn more
+                      </Link>
+                      .
+                    </p>
+                  </div>
+              </section>
+            )}
           </div>
           {/* Actions */}
           <div className="border-t bg-surface px-12 py-4 mt-6">
             <div className="max-w-[1600px] mx-auto w-full flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
               <div className="flex items-center gap-2 sm:ml-auto">
-                <Button
-                  type="default"
-                  disabled={isCreatingNewProject || isSuccessNewProject}
-                  onClick={() => {
-                    if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
-                    else router.push('/organizations')
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  htmlType="submit"
-                  loading={isCreatingNewProject || isSuccessNewProject}
-                  disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
-                  type="primary"
-                >
-                  Create project
-                </Button>
+                {step === 1 && (
+                  <>
+                    <Button
+                      type="default"
+                      disabled={isCreatingNewProject || isSuccessNewProject}
+                      onClick={() => {
+                        if (!!lastVisitedOrganization) router.push(`/org/${lastVisitedOrganization}`)
+                        else router.push('/organizations')
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="primary"
+                      disabled={!canNextStep1 || isCreatingNewProject || isSuccessNewProject}
+                      onClick={goNextStep}
+                    >
+                      Next
+                    </Button>
+                  </>
+                )}
+                {step === 2 && (
+                  <>
+                    <Button
+                      type="default"
+                      disabled={isCreatingNewProject || isSuccessNewProject}
+                      onClick={goPreviousStep}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      type="primary"
+                      disabled={!canNextStep2 || isCreatingNewProject || isSuccessNewProject}
+                      onClick={goNextStep}
+                    >
+                      Next
+                    </Button>
+                  </>
+                )}
+                {step === 3 && (
+                  <>
+                    <Button
+                      type="default"
+                      disabled={isCreatingNewProject || isSuccessNewProject}
+                      onClick={goPreviousStep}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      htmlType="submit"
+                      loading={isCreatingNewProject || isSuccessNewProject}
+                      disabled={!canCreateProject || isCreatingNewProject || isSuccessNewProject}
+                      type="primary"
+                    >
+                      Create project
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

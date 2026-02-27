@@ -46,8 +46,7 @@ export const useBranchDeleteMutation = ({
     {
       async onSuccess(data, variables, context) {
         const { orgRef, projectRef, branchRef } = variables
-
-        queryClient.invalidateQueries(branchKeys.list(orgRef, projectRef))
+        await queryClient.invalidateQueries(branchKeys.list(orgRef, projectRef))
 
         const branches: BranchesData | undefined = queryClient.getQueryData(
           branchKeys.list(orgRef, projectRef)

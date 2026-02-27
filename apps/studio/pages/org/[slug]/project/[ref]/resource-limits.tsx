@@ -295,6 +295,11 @@ const ResourceLimit: NextPageWithLayout = () => {
   const project = useWatch({ control: form.control, name: 'project' })
 
   const limitsLoading = sliderLoading || defsLoading || !limitConfig || !defaults
+  const showStorageSlider =
+    (defaults?.project.storage ?? 0) > 0 || (defaults?.perBranch.storage ?? 0) > 0
+  const visibleSliders = showStorageSlider
+    ? SLIDERS
+    : SLIDERS.filter((slider) => slider.key !== 'storage')
 
   // Commit handlers
   const commitPerBranch = (key: SliderKey) => (next: number) => {
@@ -410,7 +415,7 @@ const ResourceLimit: NextPageWithLayout = () => {
             {limitsLoading ? (
               <p className="text-sm text-foreground-muted">Loading limits…</p>
             ) : (
-              SLIDERS.map((slider) => {
+              visibleSliders.map((slider) => {
                 const cfg = limitConfig[slider.key]
                 const usage = usageByKey[slider.key] ?? 0
                 const systemMax = systemMaxByKey[slider.key]
@@ -452,7 +457,7 @@ const ResourceLimit: NextPageWithLayout = () => {
             {limitsLoading ? (
               <p className="text-sm text-foreground-muted">Loading limits…</p>
             ) : (
-              SLIDERS.map((slider) => {
+              visibleSliders.map((slider) => {
                 const cfg = limitConfig[slider.key]
                 const usage = 0
                 const systemMax = systemMaxByKey[slider.key]

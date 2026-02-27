@@ -66,6 +66,10 @@ const ProjectBackupsPage: NextPageWithLayout = () => {
       toast.error((parsedProjectName as any).error || 'Invalid project name')
       return
     }
+    if (!parsedProjectName.value) {
+      toast.error('Project name is required')
+      return
+    }
 
     updateMutation.mutate({
       orgRef: slug,

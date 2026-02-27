@@ -1,9 +1,9 @@
 import { ReactNode } from 'react'
 import { StatsCard } from 'components/ui/StatsCard'
-import { formatCompactNumber } from './utils'
+import { formatForUnit, ResourceKey } from 'components/interfaces/Branch/utils'
 
 export interface ResourceUsageMetric {
-  key: string
+  key: ResourceKey
   label: string
   value: number
   summarySuffix?: string
@@ -37,8 +37,8 @@ const ResourceUsageStats = ({ metrics, loading }: ResourceUsageStatsProps) => {
           <StatsCard
             key={metric.key}
             title={metric.label}
-            value={formatCompactNumber(metric.value)}
-            description={`Usage in selected period: ${formatCompactNumber(metric.value)}${
+            value={formatForUnit(metric.value, metric.key)}
+            description={`Usage in selected period: ${formatForUnit(metric.value, metric.key)}${
               metric.summarySuffix ? ` ${metric.summarySuffix}` : ''
             }`}
             icon={metric.icon}

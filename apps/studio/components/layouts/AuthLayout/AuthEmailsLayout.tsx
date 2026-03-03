@@ -23,7 +23,7 @@ export const AuthEmailsLayout = ({ children }: PropsWithChildren<{}>) => {
       <PageLayout
         title="Emails"
         subtitle="Configure what emails your users receive and how they are sent"
-        navigationItems={navItems}
+        //navigationItems={navItems}
       >
         {children}
       </PageLayout>

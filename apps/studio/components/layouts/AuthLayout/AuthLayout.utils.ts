@@ -50,13 +50,12 @@ export const generateAuthMenu = (
         //   url: `/org/${orgRef}/project/${projectRef}/branch/${branchRef}/auth/rate-limits`,
         //   items: [],
         // },
-        // {
-        //   name: 'Emails',
-        //   key: 'emails',
-        //   pages: ['templates', 'smtp'],
-        //   url: `/org/${orgRef}/project/${projectRef}/branch/${branchRef}/auth/templates`,
-        //   items: [],
-        // },
+        {
+           name: 'SMTP',
+           key: 'emails',
+           url: `/org/${orgRef}/project/${projectRef}/branch/${branchRef}/auth/smtp`,
+           items: [],
+         },
         {
           name: 'Multi-Factor',
           key: 'mfa',

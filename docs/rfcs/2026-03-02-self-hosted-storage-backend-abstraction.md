@@ -2,6 +2,7 @@
 
 - Status: Draft
 - Target release: Phased (see rollout plan)
+- Last updated: 2026-03-03
 
 ## 1. Summary
 
@@ -33,6 +34,20 @@ Self-hosting adoption is blocked by current assumptions:
 At the same time, an important part is already generic:
 
 - Clone/restore operations are implemented using Kubernetes snapshot APIs (`deployment/kubernetes/snapshot.py`, `volume_clone.py`) and are not inherently tied to simplyblock, provided the underlying CSI backend supports required features.
+
+## 2.1 Current implementation verification (as of 2026-03-03)
+
+Storage abstraction is not yet implemented; current branch storage lifecycle is still simplyblock-oriented in runtime behavior.
+
+Verified facts:
+
+1. Branch provisioning uses per-branch StorageClass generation cloned from `simplyblock-csi-sc` and injects simplyblock-specific QoS parameters.
+2. Runtime resize path for IOPS calls simplyblock API (`update_branch_volume_iops`) directly.
+3. Resource usage collection derives IOPS from simplyblock stats API fields and falls back to schema-required numeric values.
+4. Snapshot class selection for clone/restore and backup defaults is still hardcoded to simplyblock snapshot class names in multiple modules.
+5. Data model and deployment parameters currently treat `iops` as required in key create/clone/resize paths.
+
+Implication: rollout must start with an internal abstraction layer that preserves current behavior via a simplyblock adapter before introducing new backends.
 
 ## 3. Goals
 
@@ -256,7 +271,7 @@ Add explicit metadata so clients can distinguish zero usage from unavailable usa
 
 Add endpoint:
 
-- `GET /platform/system/storage-capabilities`
+- `GET /system/storage-capabilities` (or `${root_path}/system/storage-capabilities`)
 
 Response includes:
 
@@ -266,6 +281,10 @@ Response includes:
 - optional warnings (for degraded metric support)
 
 Also include capabilities in branch/public metadata responses for easy UI consumption.
+
+Compatibility note:
+
+- endpoint is additive; existing API consumers must continue functioning when capability metadata is absent during transition.
 
 ## 7.7 Helm/deployment changes
 
@@ -296,6 +315,10 @@ Hotspots:
 - `apps/studio/components/interfaces/Branch/NewBranchForm.tsx`
 - `apps/studio/components/interfaces/Branch/ResizeBranchModal.tsx`
 - `apps/studio/data/resource-limits/branch-slider-resource-limits.ts`
+
+Migration note:
+
+- keep legacy UI behavior until capability endpoint is available; then progressively gate controls by reported capabilities.
 
 ## 8.2 Payload shape behavior
 
@@ -363,6 +386,7 @@ When fallback mode is active (`supports_block_volume_mode=false`), API responses
 3. Keep/add `generic-csi` as minimal fallback adapter.
 4. Enable capability endpoint and Studio conditional UX.
 5. Gradually relax IOPS-only assumptions in API/schema toward structured QoS.
+6. Introduce a `legacy-iops-compat` behavior mode during transition so unsupported backends can avoid hard failures while schema evolves.
 
 ## 11. Rollout Plan
 
@@ -371,6 +395,7 @@ Phase A:
 - Introduce backend abstraction and simplyblock adapter.
 - Move snapshot/storage class values to settings.
 - No functional change.
+- Add compatibility tests that assert full parity with current simplyblock behavior.
 
 Phase B:
 
@@ -404,6 +429,7 @@ Phase D:
 - resize database/storage PVC.
 - QoS update behavior (IOPS/throughput) for supported/unsupported backends.
 - execute suite per backend profile (`simplyblock`, `zfs`, `lvm`, `generic-csi`) plus btrfs-on-generic-csi fallback profile.
+- negative tests: unsupported capability operations must fail with explicit, actionable error payloads in `strict` policy.
 
 3. Studio E2E:
 - forms render correctly by capability matrix.
@@ -495,6 +521,13 @@ Terraform/Infra:
   - document backend-specific prerequisites and tested combinations
 - `vela-terraform/*tfvars*.example`
   - expose backend selection and required variables by backend profile
+
+Additional required touchpoints:
+
+- `vela-controller/src/deployment/deployment.py`
+  - evolve mandatory `iops` contract to capability-aware handling (phased compatibility)
+- `vela-controller/src/models/branch.py` and migrations
+  - plan phased schema changes for structured/optional QoS fields
 
 ## 17. Decision
 

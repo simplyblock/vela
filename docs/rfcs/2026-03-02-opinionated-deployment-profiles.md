@@ -2,6 +2,7 @@
 
 - Status: Draft
 - Target release: Phased (see rollout plan)
+- Last updated: 2026-03-03
 
 ## 1. Summary
 
@@ -36,6 +37,18 @@ Current context:
 - `vela-terraform` exists in-repo and already encodes a practical deployment flow (Talos cluster + addons).
 - Current addon composition is biased toward simplyblock-centric storage defaults.
 - Profiles should become the canonical input that drives Terraform composition, not a parallel abstraction.
+
+## 2.1 Current implementation verification (as of 2026-03-03)
+
+Deployment profiles are not yet implemented as first-class inputs in controller or Terraform.
+
+Verified facts:
+
+1. No profile variables currently exist in `vela-terraform` or controller settings.
+2. Addon composition is mostly unconditional and not profile-gated (cert-manager, Kong, observability, autoscaler paths).
+3. Addon dependency graph and defaults still include simplyblock-centric assumptions in several paths.
+4. Internal-only/public exposure profile semantics are not yet encoded as profile policies.
+5. Current controller deployment settings still include hard requirements that conflict with profile abstraction goals (for example Cloudflare requirement paths).
 
 ## 3. Goals
 
@@ -90,7 +103,7 @@ Constraints:
 - still no multi-node HA
 - profile disallows explicitly unsafe toggles
 - requires block-storage volume capability
-- 
+- requires backup/snapshot baseline when restore workflows are enabled
 
 ## 5.3 `basic-ha-cluster`
 
@@ -179,7 +192,7 @@ Behavior:
 
 Add:
 
-- `GET /platform/system/deployment-profile`
+- `GET /system/deployment-profile` (or `${root_path}/system/deployment-profile`)
 
 Response:
 
@@ -204,6 +217,8 @@ Expose profile as first-class Terraform input:
 
 - `vela_deployment_profile`
 - `vela_deployment_profile_enforcement`
+
+Until profile-aware module architecture lands, a compatibility mapping layer should translate profile intent into current stack variables and module toggles.
 
 `vela-terraform` should resolve this into:
 
@@ -240,6 +255,7 @@ Apply profile policy at:
 - settings load/validation
 - deployment plan generation
 - branch provisioning constraints (where relevant)
+- installation and upgrade preflight
 
 ## 9.3 Studio integration
 
@@ -267,13 +283,14 @@ Map profiles to concrete `vela-terraform` composition:
 Implementation requirement:
 
 - keep profile resolution centralized (controller/shared profile spec) and consume it from Terraform, rather than duplicating profile rules in multiple places.
+- fail CI when Terraform checks diverge from shared profile artifact constraints.
 
 ## 10. Backward Compatibility
 
 Default behavior when unset:
 
 - preserve current behavior initially
-- optionally map existing installs to a compatibility profile in a later phase
+- map existing installs to an explicit `legacy-compat` profile during transition
 
 No forced migration in phase 1.
 
@@ -282,7 +299,7 @@ No forced migration in phase 1.
 Phase A:
 
 - profile schema + registry
-- existing installation into `full-ha-cluster` profile
+- `legacy-compat` profile representing current behavior
 - `single-node-dev` profile
 - preflight + API read endpoint
 - terraform input wiring for active profile
@@ -293,6 +310,7 @@ Phase B:
 - enforcement mode (`strict`/`warn`)
 - drift reporting
 - terraform module/variable mapping for all profiles
+- explicit profile-to-addon enablement matrix with deterministic plan checks
 
 Phase C:
 
@@ -309,10 +327,12 @@ Phase C:
    - install/startup with each profile
    - expected failures for missing prerequisites
    - override + drift behavior
+   - legacy install mapped to `legacy-compat` without behavior regression
 3. Terraform integration tests:
    - plan/apply validation per profile in `vela-terraform`
    - ensure profile defaults produce deterministic plans
    - ensure strict mode fails on incompatible profile overrides
+   - ensure `internal_only` profiles do not plan public DNS/cert-manager requirements
 4. Conformance suites:
    - one automated suite per profile
    - release gate requires passing suites
@@ -325,6 +345,8 @@ Phase C:
    - Mitigation: enforcement modes + drift surfacing.
 3. Risk: support burden from profile ambiguity.
    - Mitigation: explicit profile contract and deterministic validation output.
+4. Risk: implicit legacy assumptions leak into profile defaults.
+   - Mitigation: isolate `legacy-compat`, enforce profile conformance suites, and run CI drift checks against shared profile artifact.
 
 ## 14. Open Questions
 
@@ -333,6 +355,7 @@ Phase C:
 3. Should `ha-cluster` require specific minimum node count and topology labels at preflight?
 4. Do we need profile-specific upgrade blockers for unsafe transitions (for example dev -> ha-cluster)?
 5. Should Terraform accept only profile IDs, or also a generated resolved profile artifact from controller tooling?
+6. How long should `legacy-compat` remain supported before mandatory explicit profile selection?
 
 ## 15. Decision
 

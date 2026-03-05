@@ -21,7 +21,7 @@ The operator provides:
 
 1. Declarative installation via CRDs.
 2. Continuous reconciliation for drift correction and health remediation.
-3. Profile-aware orchestration for install, upgrade, backup guardrails, and provider capability gates.
+3. Profile-aware orchestration for install, upgrade, branch deployment/update/restart/restore, backup guardrails, and provider capability gates.
 4. A consistent API surface for day-0, day-1, and day-2 operations in Kubernetes-native environments.
 
 ## 2. Motivation
@@ -50,7 +50,7 @@ Implication: operator introduction is a net-new control plane and must define cl
 
 ## 3. Goals
 
-1. Make install/upgrade/rollback-prep declarative through CRDs.
+1. Make platform install/upgrade/rollback-prep and branch lifecycle operations declarative through CRDs.
 2. Encode profile and capability policy directly in reconciliation.
 3. Provide idempotent, resumable workflows for platform operations.
 4. Support HA operator deployment and safe leader-elected control loops.
@@ -72,14 +72,15 @@ Implication: operator introduction is a net-new control plane and must define cl
 2. Addon lifecycle (storage/gateway/dns/observability bundles).
 3. Secret bootstrap and rotation orchestration hooks.
 4. Upgrade orchestration with preflight gates and checkpoints.
-5. Policy/drift validation for deployment profile compatibility.
+5. Branch lifecycle orchestration: deploy, update, restart, restore, and deprovision flows.
+6. Policy/drift validation for deployment profile compatibility.
 
 ## 5.2 Out of scope (initial)
 
 1. Cloud VPC/VM creation.
 2. Multi-cluster federation.
-3. Tenant-level branch orchestration replacement.
-4. Full replacement of existing controller branch provisioning logic in v1.
+3. Full rewrite of branch business logic internals inside the existing controller in v1.
+4. Branch autoscaling policy/optimization beyond explicit operator-triggered lifecycle actions.
 
 ## 6. Architecture
 
@@ -94,6 +95,7 @@ Implication: operator introduction is a net-new control plane and must define cl
    - `VelaInstallationReconciler`
    - `VelaAddonReconciler`
    - `VelaUpgradePlanReconciler`
+   - `VelaBranchOperationReconciler`
    - `VelaBackupPolicyReconciler`
    - `VelaConformanceRunReconciler`
 3. Shared services
@@ -239,6 +241,29 @@ Status:
 - `phase`
 - `resultsSummary`
 - `artifactRefs`
+
+## 7.6 `VelaBranchOperation` (namespaced)
+
+Purpose:
+
+- declarative branch lifecycle operation requests.
+
+Spec:
+
+- `branchRef` (identifier/name)
+- `operation`: `deploy|update|restart|restore|deprovision`
+- `sourceRevision` (for deploy/update)
+- `restoreRef` (backup/snapshot reference for restore)
+- `policy`: `strict|best_effort`
+- `timeout`
+
+Status:
+
+- `phase`: `Pending|Running|Succeeded|Failed`
+- `conditions[]`
+- `currentStep`
+- `lastSuccessfulOperationTime`
+- `operationResultSummary`
 
 ## 8. CRD Validation Requirements
 
@@ -456,7 +481,8 @@ Add OpenTelemetry hooks for long-running reconcile workflows.
 Expose operator-derived states to:
 
 1. CLI (`vela install status`, `vela upgrade status`)
-2. Studio system pages for profile/capability/drift/upgrade progress
+2. CLI (`vela branch deploy|update|restart|restore status`)
+3. Studio system pages for profile/capability/drift/upgrade/branch-operation progress
 
 Controller or aggregator API should surface CRD status snapshots without requiring direct kube access from Studio.
 
@@ -465,6 +491,8 @@ Proposed API path alignment with current controller routing:
 - `GET /system/operator/installations`
 - `GET /system/operator/installations/{name}`
 - `GET /system/operator/upgrade-plans/{name}`
+- `GET /system/operator/branch-operations`
+- `GET /system/operator/branch-operations/{name}`
 
 ## 17. Implementation Plan
 
@@ -479,15 +507,17 @@ Phase B:
 
 1. addon reconciliation (`VelaAddon`)
 2. preflight and upgrade gating integration
-3. HA hardening and leader election validation
-4. controlled adoption to `strict-manage` for selected components
+3. branch lifecycle reconciliation (`VelaBranchOperation`) for deploy/update/restart
+4. HA hardening and leader election validation
+5. controlled adoption to `strict-manage` for selected components
 
 Phase C:
 
 1. backup policy and conformance CRDs
-2. air-gap artifact integration
-3. Studio/CLI integration for status and diagnostics
-4. evaluate handoff/deprecation path for overlapping Terraform-managed components
+2. branch restore/deprovision flows and failure recovery hardening
+3. air-gap artifact integration
+4. Studio/CLI integration for status and diagnostics
+5. evaluate handoff/deprecation path for overlapping Terraform-managed components
 
 ## 18. Testing Strategy
 
@@ -502,6 +532,7 @@ Phase C:
 3. E2E:
    - install for each supported profile baseline
    - upgrade with preflight pass/fail paths
+   - branch deploy/update/restart/restore flows
    - HA failover of operator leader
    - air-gap install flow
    - ownership conflict/adoption transition flow (`observe -> strict-manage`)
@@ -521,7 +552,7 @@ Phase C:
 
 ## 20. Open Questions
 
-1. Should operator own only platform install/upgrade, or also branch-level lifecycle over time?
+1. What is the final split between `VelaBranchOperation` and existing controller APIs during transition phases?
 2. Should OLM packaging be GA requirement or optional?
 3. Do we require separate control-plane namespace isolation by default?
 4. Which CRDs should be cluster-scoped vs namespaced in final tenancy model?
@@ -529,4 +560,4 @@ Phase C:
 
 ## 21. Decision
 
-Adopt a Kubernetes Operator-based installation and operations model with declarative CRDs, reconciliation-driven lifecycle management, capability/profile enforcement, and upgrade guardrails as the long-term control-plane operations path for self-hosted Vela.
+Adopt a Kubernetes Operator-based installation and operations model with declarative CRDs, reconciliation-driven lifecycle management for platform and branch operations, capability/profile enforcement, and upgrade guardrails as the long-term control-plane operations path for self-hosted Vela.

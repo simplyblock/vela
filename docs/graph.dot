@@ -1,0 +1,77 @@
+digraph RFC_Layers {
+  rankdir=TB;
+  graph [fontsize=10, fontname="Helvetica"];
+  node  [shape=box, style=rounded, fontsize=10, fontname="Helvetica"];
+
+  subgraph cluster_foundation {
+    label="Foundation";
+    CM [label="capability-manifest"];
+    OP [label="deployment-profiles"];
+    IP [label="install-preflight"];
+    UP [label="upgrade-preflight"];
+  }
+
+  subgraph cluster_platform {
+    label="Platform Abstractions";
+    SA [label="storage-abstraction"];
+    DNS [label="dns-provider-abstraction"];
+    GW [label="gateway-provider-modes"];
+    IFE [label="internal-first-endpoints"];
+    TPD [label="terraform-provider-decoupling"];
+    AG [label="air-gapped-lifecycle"];
+    AUTH [label="controller-auth-machine"];
+    SH [label="secrets-hardening"];
+  }
+
+  subgraph cluster_orchestration {
+    label="Orchestration / Control Plane";
+    DAG [label="dag-workflow-manager"];
+    KO [label="k8s-operator-install-ops"];
+  }
+
+  OP -> CM;
+  IP -> CM;
+  IP -> OP;
+  UP -> CM;
+  UP -> IP;
+
+  SA -> OP;
+  SA -> CM;
+  TPD -> SA;
+  TPD -> OP;
+  TPD -> CM;
+  TPD -> IP;
+  TPD -> IFE;
+
+  DNS -> OP;
+  DNS -> CM;
+  GW -> OP;
+  GW -> CM;
+  IFE -> DNS;
+  IFE -> GW;
+  IFE -> OP;
+
+  AG -> TPD;
+  AG -> CM;
+  AG -> IP;
+  AG -> UP;
+  AG -> OP;
+
+  AUTH -> SH;
+  SH -> OP;
+  SH -> KO;
+
+  DAG -> SA;
+  DAG -> AUTH;
+  DAG -> IP;
+
+  KO -> DAG;
+  KO -> IP;
+  KO -> UP;
+  KO -> OP;
+  KO -> SA;
+  KO -> GW;
+  KO -> DNS;
+  KO -> CM;
+  KO -> AG;
+}

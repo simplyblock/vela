@@ -1,0 +1,13 @@
+1. Provide one-command backup/restore for full control plane + data plane, not only branch snapshots.
+2. Support air-gapped installs with mirrored images/charts and an offline artifact manifest.
+3. Publish hard performance envelopes for common hardware tiers (for example 8/16/32 core single-host) with expected branch counts.
+4. Add disaster-recovery docs/playbooks with concrete RTO/RPO scenarios and tested restore drills.
+5. Add end-to-end conformance tests that self-hosters can run after install to verify branching, backups, restore, resize, and storage.
+6. Reduce operational burden with safer defaults: sane retention limits, automatic cleanup of failed branch artifacts, and explicit quota presets.
+7. Add a formal provider/backend capability manifest (capabilities.yaml) consumed by Terraform validations and controller preflight, so profile gating is data-driven not hardcoded.
+8. Add image/chart mirror support for air-gapped installs (explicit artifact manifest + digest pinning).
+9. Move all secret handling to reference-based inputs (SOPS/external secret refs), avoiding plaintext variable paths.
+
+- Controller implementation certification list
+-
+

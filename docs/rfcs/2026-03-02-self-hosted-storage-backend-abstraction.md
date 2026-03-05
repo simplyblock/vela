@@ -399,7 +399,7 @@ Phase A:
 
 Phase B:
 
-- Implement `zfs` and `lvm` backends.
+- Implement `zfs` and/or `lvm` backends.
 - Keep `generic-csi` as minimal fallback backend.
 - Support branch create/clone/restore/backup on non-simplyblock backends.
 - Add capability endpoint.

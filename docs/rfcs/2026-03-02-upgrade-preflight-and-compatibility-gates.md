@@ -189,8 +189,7 @@ Required behavior:
 
 1. `vela-controller/src/api/__init__.py`
    - refactor `_populate_db()` to support preflight-aware mode selection.
-
-   2. New package:
+2. New package:
     ```text
     vela-controller/src/upgrade_preflight/
       __init__.py
@@ -329,37 +328,35 @@ Notes:
 ## 15. Testing Requirements
 
 1. Unit:
-- manifest parsing and version edge evaluation,
-- migration gate logic,
-- policy evaluator (strict vs best_effort),
-- mutable source detection.
-
+   - manifest parsing and version edge evaluation,
+   - migration gate logic,
+   - policy evaluator (strict vs best_effort),
+   - mutable source detection.
 2. Integration:
-- unsupported version jump block,
-- CRD/addon mismatch block,
-- rollback-readiness failure,
-- successful preflight pass with full report.
-
+   - unsupported version jump block,
+   - CRD/addon mismatch block,
+   - rollback-readiness failure,
+   - successful preflight pass with full report.
 3. E2E:
-- production profile blocks startup/upgrade on failed preflight,
-- local dev profile allows auto-migration mode,
-- acknowledgement workflow for point-of-no-return transitions.
+   - production profile blocks startup/upgrade on failed preflight,
+   - local dev profile allows auto-migration mode,
+   - acknowledgement workflow for point-of-no-return transitions.
 
 ## 16. Rollout Plan
 
-Phase 1:
+Phase A:
 
 1. Preflight engine skeleton + manifest contract.
 2. Version path + DB migration gates.
 3. Report model and API/CLI output.
 
-Phase 2:
+Phase B:
 
 1. Addon/CRD/provider gates.
 2. Rollback readiness checks based on existing backup/snapshot data.
 3. Strict policy default for production profile.
 
-Phase 3:
+Phase C:
 
 1. Startup enforcement integration (preflight-aware migration behavior).
 2. Terraform/CI mandatory gating.

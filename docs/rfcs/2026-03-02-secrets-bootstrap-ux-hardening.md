@@ -314,17 +314,17 @@ Compatibility requirements:
 
 ## 16. Rollout Plan
 
-Phase 1:
+Phase A:
 
 1. Secret catalog and bootstrap manager implementation.
 2. Legacy chart hardening for highest-risk secrets (studio/controller auth + pgmeta + keycloak client/admin).
 
-Phase 2:
+Phase B:
 
 1. Unified rotation manager and CLI surface.
 2. Integration of existing branch secret rotation workflows.
 
-Phase 3:
+Phase C:
 
 1. Terraform flow integration and optional encrypted export.
 2. Hardened defaults enabled, placeholders rejected by default.

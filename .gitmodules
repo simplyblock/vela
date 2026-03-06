@@ -1,3 +1,9 @@
 [submodule "vela-controller"]
 	path = vela-controller
 	url = git@github.com:simplyblock/vela-controller.git
+[submodule "vela-terraform"]
+	path = vela-terraform
+	url = git@github.com:simplyblock/vela-gcp.git
+[submodule "vela-os"]
+	path = vela-os
+	url = git@github.com:simplyblock/vela-os.git

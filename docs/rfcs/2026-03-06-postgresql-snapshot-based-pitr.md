@@ -46,8 +46,8 @@ Timeline model:
 ```text
 ----- T0 ----- T1 ----- T2 ------ T3 ------ T4 ----- CPIT
                      ^ PITR Target
-                ^ Restore Target                       ^ Additional WAL Segment Copy Source
-                         ^ Additional WAL Segment Copy Source (potential optimization in the future) 
+                 ^ Restore Target                     ^ Additional WAL Segment Copy Source
+                          ^ Additional WAL Segment Copy Source
 ```
 
 Definitions:
@@ -117,17 +117,35 @@ Given `pitr_target_time`:
 2. Restore data and WAL volumes from `Tr`.
 3. Perform WAL segment merge from CPIT WAL volume into restored WAL volume:
    - copy last segment file on restored WAL volume (to handle truncated tail),
-   - copy all additional WAL segment files with file creation timestamp `< pitr_target_time`.
-4. Ensure copied WAL files are durable (`fsync` and directory sync) before DB start.
-5. Set `snapshot_pitr_target_time='<pitr_target_time>'` in `postgresql.conf`.
-6. Start PostgreSQL.
-7. Wait for recovery completion signals:
+   - copy all additional WAL segment files with file creation timestamp `< pitr_target_time`,
+   - enforce deterministic segment ordering (timestamp + WAL segment order/timeline order).
+4. Validate copied WAL segment files using MD5 checksum comparison (source CPIT WAL file vs copied file).
+5. Ensure copied WAL files are durable (`fsync` and directory sync) before DB start.
+6. Set `snapshot_pitr_target_time='<pitr_target_time>'` in `postgresql.conf`.
+7. Start PostgreSQL.
+8. Wait for recovery completion signals:
    - target time reached,
    - consistency reached,
    - end-of-recovery checkpoint complete.
-8. Mark operation successful only after PostgreSQL reports readiness.
+9. Mark operation successful only after PostgreSQL reports readiness.
 
-## 7.5 PostgreSQL behavior contract
+## 7.5 Recovery modes (GA)
+
+GA includes both PITR execution modes:
+
+1. New-branch recovery:
+   - use snapshot-restore + WAL merge flow from section 7.4 for a new target branch.
+2. In-place recovery:
+   - stop the branch VM,
+   - delete current data volume,
+   - clone new data volume from snapshot at `T(n) <= target_time`,
+   - clone new WAL volume from snapshot at `T(n) <= target_time`,
+   - copy required WAL segments from current WAL volume,
+   - delete current WAL volume after successful copy+verification,
+   - update VM spec to attach restored/merged data and WAL volumes,
+   - start VM with snapshot-based PITR enabled.
+
+## 7.6 PostgreSQL behavior contract
 
 When `snapshot_pitr_target_time` is set:
 
@@ -145,7 +163,8 @@ Add PITR fields to branch restore/clone operation request contracts:
 
 1. `pitr.target_time` (required for PITR restore path).
 2. `pitr.source_branch_id` (optional, default: same branch as restore source).
-3. `pitr.enabled` (derived from branch capability but exposed in operation status).
+3. `pitr.mode`: `new_branch|in_place`.
+4. `pitr.enabled` (derived from branch capability but exposed in operation status).
 
 ## 8.2 Operation phases
 
@@ -177,11 +196,12 @@ Expose explicit PITR phases:
    - snapshot restore/clone,
    - dedicated WAL volume support.
 5. WAL continuity from `Tr` to `target_time` is satisfiable from CPIT WAL volume.
+6. In `in_place` mode: VM can be cleanly stopped and volume detach/replace operations are permitted.
 
 ## 9.2 Hard failures
 
 1. No snapshot before target time.
-2. Required WAL segment missing/corrupt during merge.
+2. Required WAL segment missing/corrupt during merge or MD5 mismatch after copy.
 3. PostgreSQL fails to enter or complete PITR.
 4. Recovery overshoots target unexpectedly without reaching consistency.
 
@@ -217,10 +237,12 @@ Record:
 
 1. Unit tests:
    - snapshot selection for target timestamp,
-   - WAL segment filter logic,
+   - WAL segment filter logic (timestamp + segment order),
+   - MD5 checksum verification behavior,
    - phase transition/idempotency behavior.
 2. Integration tests:
    - dual-volume restore and WAL merge with synthetic WAL files,
+   - in-place mode volume swap workflow,
    - preflight failure scenarios (missing snapshot, missing WAL segment).
 3. E2E tests:
    - recover to timestamp between snapshots,
@@ -244,9 +266,37 @@ Phase B:
 Phase C:
 
 1. Default-on for eligible PITR-enabled branches.
-2. Deprecate archive-first assumptions in branch PITR workflows.
+2. GA with both `new_branch` and `in_place` recovery modes.
+3. Deprecate archive-first assumptions in branch PITR workflows.
 
-## 14. Example Recovery Signals
+## 14. WAL Retention Strategy Options (CPIT -> T0)
+
+PITR requires preserving WAL segments on CPIT WAL volume long enough to satisfy requested targets. Candidate approaches:
+
+1. PostgreSQL parameter-only retention (`wal_keep_size` and checkpoint/WAL sizing).
+   - Pros: minimal changes.
+   - Cons: size-based, not strictly time-window deterministic; risk of segment recycling under write spikes.
+2. Archive-command for retention only (not archive restore).
+   - Use `archive_command` to copy completed WAL files to a durable local/cluster volume managed by Vela, while keeping snapshot-based recovery path.
+   - Pros: robust WAL preservation with existing PostgreSQL hooks; no custom WAL parser required.
+   - Cons: introduces archive pipeline management even if restore does not use it.
+3. Archive-command failure pinning (`exit 1`) to keep WAL files in `pg_wal`.
+   - Configure `archive_command` to intentionally fail so PostgreSQL retains WAL segments locally and retries archiving.
+   - Pros: very simple mechanism; no additional copy pipeline required initially.
+   - Cons: operationally risky; can cause unbounded WAL growth and eventual WAL-volume exhaustion, impacting writes/availability.
+   - Recommendation: allowed only as short-lived emergency/debug mode with strict guardrails and alerting, not as default production strategy.
+4. Vela WAL retention sidecar/service.
+   - Continuously copies WAL segment files from active WAL volume into managed retention storage with metadata index.
+   - Pros: Vela-controlled lifecycle and observability.
+   - Cons: more moving parts; must avoid races with PostgreSQL segment rotation.
+5. PostgreSQL extension/patch-level deeper integration (for example custom resource manager paths).
+   - Pros: tight control and potentially better selection semantics.
+   - Cons: highest complexity and maintenance risk; not recommended for v1.
+6. Future optimization: `pg_waldump`-assisted target introspection.
+   - Use `pg_waldump` in later phases to inspect commit boundaries and provide cleaner target/segment selection UX.
+   - Timestamp + segment-order selection remains the faster default path for v1.
+
+## 15. Example Recovery Signals
 
 Expected PostgreSQL logs include:
 
@@ -262,13 +312,12 @@ Example target config:
 snapshot_pitr_target_time='2026-01-09 14:18:00.367636+00'
 ```
 
-## 15. Open Questions
+## 16. Open Questions
 
-1. Should WAL segment eligibility use file creation time only, or `(creation time, segment order)` tie-breaker to avoid filesystem timestamp granularity issues?
-2. Do we enforce checksum/hash verification for copied WAL segments in v1, or defer to PostgreSQL validation only?
-3. Should PITR to `target_time` be exposed as in-place restore only, clone-only, or both from GA?
-4. What retention guardrails are required to guarantee WAL continuity windows for user-selected PITR targets?
+1. Which WAL retention strategy from section 14 should be the v1 default for guaranteeing CPIT->T0 continuity?
+2. What minimum guaranteed PITR window must Vela enforce per service tier/profile?
+3. API/Studio should eventually provide available recovery timestamps for selection; should this be powered by `pg_waldump`-based introspection, WAL metadata indexing, or a hybrid approach?
 
-## 16. Decision
+## 17. Decision
 
 Adopt snapshot-based PostgreSQL PITR for Vela branches using dual-volume restore (`pgdata` + `wal`), WAL segment merge from CPIT WAL volume, and PostgreSQL recovery driven by `snapshot_pitr_target_time`, as the default PITR architecture for supported storage backends.

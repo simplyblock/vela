@@ -23,8 +23,11 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
   const { query } = req.body
   const headers = constructHeaders(req.headers)
 
+  const url = await getPgMetaRedirectUrl(req, res, 'query')
+  if (!url) return res.status(404).json({ error: { message: 'Branch not found' } })
+
   try {
-    const response = await fetchPost(getPgMetaRedirectUrl(req, 'query'), { query }, { headers })
+    const response = await fetchPost(url, { query }, { headers })
 
     if (response.error) {
       const { code, message } = response.error

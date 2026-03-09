@@ -3,7 +3,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { fetchGet } from 'data/fetchers'
 import { constructHeaders } from 'lib/api/apiHelpers'
 import apiWrapper from 'lib/api/apiWrapper'
-import { getPgMetaUrl } from 'lib/api/getPgMetaUrl'
+import { getPgMetaBaseUrl } from 'lib/api/getPgMetaUrl'
 
 export default (req: NextApiRequest, res: NextApiResponse) =>
   apiWrapper(req, res, handler, { withAuth: true })
@@ -41,8 +41,11 @@ const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
 
   const headers = constructHeaders(req.headers)
 
+  const baseUrl = await getPgMetaBaseUrl(req, res)
+  if (!baseUrl) return res.status(404).json({ error: { message: 'Branch not found' } })
+
   const response = await fetchGet(
-    `${getPgMetaUrl(req)}/generators/typescript?included_schema=${includedSchema}&excluded_schemas=${excludedSchema}`,
+    `${baseUrl}/generators/typescript?included_schema=${includedSchema}&excluded_schemas=${excludedSchema}`,
     { headers }
   )
 

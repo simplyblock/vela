@@ -22,7 +22,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
 const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
   const headers = constructHeaders(req.headers)
-  const response = await fetchGet(getPgMetaRedirectUrl(req, 'foreign-tables'), { headers })
+  const url = await getPgMetaRedirectUrl(req, res, 'foreign-tables')
+  if (!url) return res.status(404).json({ error: { message: 'Branch not found' } })
+
+  const response = await fetchGet(url, { headers })
 
   if (response.error) {
     const { code, message } = response.error

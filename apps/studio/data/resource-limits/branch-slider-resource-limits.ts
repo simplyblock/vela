@@ -1,5 +1,4 @@
 import { ProjectLimitsData, useProjectLimitsQuery } from 'data/resource-limits/project-limits-query'
-import { ArrayElement } from 'types'
 import { components } from '../vela/vela-schema'
 import { Branch } from '../branches/branch-query'
 import { useParams } from 'common'
@@ -17,8 +16,7 @@ export interface SliderSpecification {
   initial: number
 }
 
-export type ResourceType = ArrayElement<ProjectLimitsData>['resource']
-export type ProjectLimit = ArrayElement<ProjectLimitsData>
+export type ResourceType = 'milli_vcpu' | 'ram' | 'iops' | 'database_size' | 'storage_size'
 export type ResourceLimit = components['schemas']['ResourceLimitDefinitionPublic']
 
 const sliderNames = {
@@ -38,23 +36,21 @@ const GIB = 1024 * MIB
 const selectSystemResourceType = (resourceType: ResourceType, limits?: ResourceLimit[]) =>
   !limits ? undefined : limits.find((limit) => limit.resource_type === resourceType)
 
-const selectProjectResourceType = (resourceType: ResourceType, limits?: ProjectLimit[]) =>
-  !limits ? undefined : limits.find((limit) => limit.resource === resourceType)
+const getProjectMaxPerBranch = (resourceType: ResourceType, limits?: ProjectLimitsData) =>
+  limits?.per_branch[resourceType] ?? null
 
 const iopsLimit = (
-  projectLimits?: ProjectLimit[],
+  projectLimits?: ProjectLimitsData,
   systemLimits?: ResourceLimit[],
   source?: Branch
 ) => {
   const systemLimit = selectSystemResourceType('iops', systemLimits)
-  const projectLimit = selectProjectResourceType('iops', projectLimits)
-
-  const { max_per_branch } = projectLimit ? projectLimit : { max_per_branch: MAX_INTEGER }
+  const maxPerBranch = getProjectMaxPerBranch('iops', projectLimits) ?? MAX_INTEGER
   const { min, max, step } = systemLimit ? systemLimit : { min: 100, max: 100000000, step: 100 }
 
   const maxResources = source?.max_resources
 
-  const maxIops = Math.min(max_per_branch, max)
+  const maxIops = Math.min(maxPerBranch, max)
   const minIops = min
 
   return {
@@ -68,19 +64,17 @@ const iopsLimit = (
 }
 
 const vcpuLimit = (
-  projectLimits?: ProjectLimit[],
+  projectLimits?: ProjectLimitsData,
   systemLimits?: ResourceLimit[],
   source?: Branch
 ) => {
   const systemLimit = selectSystemResourceType('milli_vcpu', systemLimits)
-  const projectLimit = selectProjectResourceType('milli_vcpu', projectLimits)
-
-  const { max_per_branch } = projectLimit ? projectLimit : { max_per_branch: MAX_INTEGER }
+  const maxPerBranch = getProjectMaxPerBranch('milli_vcpu', projectLimits) ?? MAX_INTEGER
   const { min, max, step } = systemLimit ? systemLimit : { min: 2000, max: 64000, step: 100 }
 
   const maxResources = source?.max_resources
 
-  const maxMillis = Math.min(max_per_branch, max)
+  const maxMillis = Math.min(maxPerBranch, max)
   const minMillis = min
 
   return {
@@ -94,31 +88,27 @@ const vcpuLimit = (
 }
 
 const memoryLimit = (
-  projectLimits?: ProjectLimit[],
+  projectLimits?: ProjectLimitsData,
   systemLimits?: ResourceLimit[],
   source?: Branch
 ) => {
   const systemLimit = selectSystemResourceType('ram', systemLimits)
-  const projectLimit = selectProjectResourceType('ram', projectLimits)
-
-  const { max_per_branch } = projectLimit
-    ? projectLimit
-    : { max_per_branch: MAX_INTEGER }
+  const maxPerBranch = getProjectMaxPerBranch('ram', projectLimits) ?? MAX_INTEGER
 
   // Assume backend always sends BYTES
   const { min, max, step } = systemLimit
     ? systemLimit
-    : { min: 2 * GIB, max: 256 * GIB, step: 256 * MIB } 
+    : { min: 2 * GIB, max: 256 * GIB, step: 256 * MIB }
 
   const maxResources = source?.max_resources
 
-  const maxMemory = Math.min(max_per_branch, max)
+  const maxMemory = Math.min(maxPerBranch, max)
   const minMemory = min
 
   return {
     min: minMemory / GIB,
     max: maxMemory / GIB,
-    step: step / GIB, 
+    step: step / GIB,
     unit: 'GiB',
     divider: GIB,
     initial: (maxResources?.ram_bytes ?? minMemory) / GIB,
@@ -126,21 +116,19 @@ const memoryLimit = (
 }
 
 const databaseSizeLimit = (
-  projectLimits?: ProjectLimit[],
+  projectLimits?: ProjectLimitsData,
   systemLimits?: ResourceLimit[],
   source?: Branch
 ) => {
   const systemLimit = selectSystemResourceType('database_size', systemLimits)
-  const projectLimit = selectProjectResourceType('database_size', projectLimits)
-
-  const { max_per_branch } = projectLimit ? projectLimit : { max_per_branch: MAX_INTEGER }
+  const maxPerBranch = getProjectMaxPerBranch('database_size', projectLimits) ?? MAX_INTEGER
   const { min, max, step, unit } = systemLimit
     ? systemLimit
     : { min: GB, max: 100 * TB, step: GB, unit: 'GB' }
 
   const maxResources = source?.max_resources
 
-  const maxSize = Math.min(max_per_branch, max)
+  const maxSize = Math.min(maxPerBranch, max)
   const minSize = Math.max(maxResources?.nvme_bytes ?? min, min)
 
   return {
@@ -154,21 +142,19 @@ const databaseSizeLimit = (
 }
 
 const storageSizeLimit = (
-  projectLimits?: ProjectLimit[],
+  projectLimits?: ProjectLimitsData,
   systemLimits?: ResourceLimit[],
   source?: Branch
 ) => {
   const systemLimit = selectSystemResourceType('storage_size', systemLimits)
-  const projectLimit = selectProjectResourceType('storage_size', projectLimits)
-
-  const { max_per_branch } = projectLimit ? projectLimit : { max_per_branch: MAX_INTEGER }
+  const maxPerBranch = getProjectMaxPerBranch('storage_size', projectLimits) ?? MAX_INTEGER
   const { min, max, step, unit } = systemLimit
     ? systemLimit
     : { min: GB, max: TB, step: GB, unit: 'GB' }
 
   const maxResources = source?.max_resources
 
-  const maxSize = Math.min(max_per_branch, max)
+  const maxSize = Math.min(maxPerBranch, max)
   const minSize = Math.max(maxResources?.storage_bytes ?? min, min)
 
   return {
@@ -195,20 +181,27 @@ export function useBranchSliderResourceLimits(
     orgRef: orgSlug || slug,
   })
 
-  const normalizedOrgDefinitions = useMemo(
-    () =>
-      orgDefinitions?.map((definition) => {
-        const systemLimit = selectSystemResourceType(definition.resource, systemDefinitions)
-        return {
-          min: systemLimit?.min ?? 0,
-          max: definition.max_per_branch,
-          step: systemLimit?.step ?? 1,
-          resource_type: definition.resource,
-          unit: systemLimit?.unit ?? '',
-        } as ResourceLimit
-      }) ?? ([] as ResourceLimit[]),
-    [orgDefinitions, systemDefinitions]
-  )
+  const normalizedOrgDefinitions = useMemo((): ResourceLimit[] => {
+    if (!orgDefinitions) return []
+    const resourceTypes: ResourceType[] = [
+      'milli_vcpu',
+      'ram',
+      'iops',
+      'database_size',
+      'storage_size',
+    ]
+    return resourceTypes.map((resourceType) => {
+      const systemLimit = selectSystemResourceType(resourceType, systemDefinitions)
+      const maxPerBranch = orgDefinitions.per_branch[resourceType]
+      return {
+        min: systemLimit?.min ?? 0,
+        max: maxPerBranch ?? systemLimit?.max ?? MAX_INTEGER,
+        step: systemLimit?.step ?? 1,
+        resource_type: resourceType,
+        unit: systemLimit?.unit ?? '',
+      } as ResourceLimit
+    })
+  }, [orgDefinitions, systemDefinitions])
 
   const { data: projectLimits, isLoading: projectLimitsLoading } = useProjectLimitsQuery({
     orgRef: orgSlug || slug,

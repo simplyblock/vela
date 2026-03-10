@@ -111,13 +111,14 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
       const availableRaw = availableProjectResources?.[key]
       if (typeof availableRaw !== 'number') return
 
-      const availableDisplay = availableRaw / spec.divider
-      const cappedMax = Math.max(0, Math.min(spec.max, availableDisplay))
-      const cappedMin = Math.min(spec.min, cappedMax)
+      // Round to avoid float artifacts from unit conversion, then snap down to step
+      const availableDisplay = Math.round((availableRaw / spec.divider) * 100) / 100
+      const steppedAvailable = Math.floor(availableDisplay / spec.step) * spec.step
+      const cappedMax = Math.max(0, Math.min(spec.max, steppedAvailable))
 
+      // Keep original min so hasInsufficientResources correctly detects cappedMax < spec.min
       capped[key] = {
         ...spec,
-        min: cappedMin,
         max: cappedMax,
       }
     })
@@ -174,6 +175,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   }, [sourceBranch])
 
   const enableStorageService = form.watch('enableStorageService')
+  const projectHasStorage = (effectiveLimits?.storage_size?.max ?? 0) > 0
   const hasInsufficientResources = useMemo(() => {
     if (!effectiveLimits) return false
 
@@ -380,6 +382,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
 
           <div className="grid grid-cols-1 gap-y-4">
             {(Object.keys(effectiveLimits) as ResourceType[]).map((key) => {
+              if (key === 'storage_size' && !projectHasStorage) return null
               const fieldError = (form.formState.errors as any)?.resources?.[key]?.message as
               | string
               | undefined
@@ -427,7 +430,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
         </div>
       </div>
     )
-  }, [effectiveLimits, adjustableResources, enableStorageService, hasInsufficientResources])
+  }, [effectiveLimits, adjustableResources, enableStorageService, hasInsufficientResources, projectHasStorage])
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -737,6 +740,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                 <p className="font-medium text-sm text-foreground">Availability &amp; storage</p>
                 <div className="grid grid-cols-2">
                   <div className="space-y-6">
+                    {projectHasStorage && (
                     <div className="flex items-start gap-3 text-sm">
                       <FormField_Shadcn_
                         control={form.control}
@@ -758,6 +762,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                         )}
                       />
                     </div>
+                    )}
                     <div className="flex items-start gap-3 text-sm">
                       <FormField_Shadcn_
                         control={form.control}

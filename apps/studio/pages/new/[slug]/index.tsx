@@ -238,79 +238,60 @@ const CreateProjectPage: NextPageWithLayout = () => {
     if (!systemLimitDefinitions) return null
 
     const map: LimitMap = {}
-    for (const def of limitDefinitions) {
-      const systemLimitDef = systemLimitDefinitions.find(
-        limit => limit.resource_type === def.resource
-      )
-      switch (def.resource) {
-        case 'milli_vcpu': {
-          const k: SliderKey = 'vcpu'
-          const divider = 1000
-          const backendStep = systemLimitDef?.step ?? 100
-          map[k] = {
-            label: LABELS[k],
-            min: (systemLimitDef?.min ?? 0) / divider,
-            max: (def.max_total ?? 0) / divider,
-            step: backendStep / divider,
-            unit: 'vCPU',
-            divider,
-          }
-          break
-        }
-        case 'ram': {
-          const k: SliderKey = 'ram'
-          const divider = GIB
-          const backendStep = systemLimitDef?.step ?? 256 * 1024 * 1024
-          map[k] = {
-            label: LABELS[k],
-            min: (systemLimitDef?.min ?? 0) / divider,
-            max: (def.max_total ?? 0) / divider,
-            step: backendStep / divider,
-            unit: 'GiB',
-            divider,
-          }
-          break
-        }
-        case 'iops': {
-          const k: SliderKey = 'iops'
-          map[k] = {
-            label: LABELS[k],
-            min: systemLimitDef?.min ?? 0,
-            max: def.max_total ?? 0,
-            step: systemLimitDef?.step ?? 100,
-            unit: 'IOPS',
-            divider: 1,
-          }
-          break
-        }
-        case 'database_size': {
-          const k: SliderKey = 'nvme'
-          const divider = 1_000_000_000 // 1 GB
-          const backendStep = systemLimitDef?.step ?? divider
-          map[k] = {
-            label: LABELS[k],
-            min: (systemLimitDef?.min ?? 0) / divider,
-            max: (def.max_total ?? 0) / divider,
-            step: backendStep / divider,
-            unit: 'GB',
-            divider,
-          }
-          break
-        }
-        case 'storage_size': {
-          const k: SliderKey = 'storage'
-          const divider = 1_000_000_000 // 1 GB
-          const backendStep = systemLimitDef?.step ?? divider
-          map[k] = {
-            label: LABELS[k],
-            min: (systemLimitDef?.min ?? 0) / divider,
-            max: (def.max_total ?? 0) / divider,
-            step: backendStep / divider,
-            unit: 'GB',
-            divider,
-          }
-          break
-        }
+
+    const vcpuDef = systemLimitDefinitions.find(l => l.resource_type === 'milli_vcpu')
+    const vcpuDivider = 1000
+    map['vcpu'] = {
+      label: LABELS['vcpu'],
+      min: (vcpuDef?.min ?? 0) / vcpuDivider,
+      max: (limitDefinitions.total.milli_vcpu ?? 0) / vcpuDivider,
+      step: (vcpuDef?.step ?? 100) / vcpuDivider,
+      unit: 'vCPU',
+      divider: vcpuDivider,
+    }
+
+    const ramDef = systemLimitDefinitions.find(l => l.resource_type === 'ram')
+    const ramDivider = GIB
+    map['ram'] = {
+      label: LABELS['ram'],
+      min: (ramDef?.min ?? 0) / ramDivider,
+      max: (limitDefinitions.total.ram ?? 0) / ramDivider,
+      step: (ramDef?.step ?? 256 * 1024 * 1024) / ramDivider,
+      unit: 'GiB',
+      divider: ramDivider,
+    }
+
+    const iopsDef = systemLimitDefinitions.find(l => l.resource_type === 'iops')
+    map['iops'] = {
+      label: LABELS['iops'],
+      min: iopsDef?.min ?? 0,
+      max: limitDefinitions.total.iops ?? 0,
+      step: iopsDef?.step ?? 100,
+      unit: 'IOPS',
+      divider: 1,
+    }
+
+    const nvmeDef = systemLimitDefinitions.find(l => l.resource_type === 'database_size')
+    const nvmeDivider = 1_000_000_000 // 1 GB
+    map['nvme'] = {
+      label: LABELS['nvme'],
+      min: (nvmeDef?.min ?? 0) / nvmeDivider,
+      max: (limitDefinitions.total.database_size ?? 0) / nvmeDivider,
+      step: (nvmeDef?.step ?? nvmeDivider) / nvmeDivider,
+      unit: 'GB',
+      divider: nvmeDivider,
+    }
+
+    if ((limitDefinitions.total.storage_size ?? 0) > 0) {
+      const storageDef = systemLimitDefinitions.find(l => l.resource_type === 'storage_size')
+      const storageDivider = 1_000_000_000 // 1 GB
+      map['storage'] = {
+        label: LABELS['storage'],
+        min: (storageDef?.min ?? 0) / storageDivider,
+        max: (limitDefinitions.total.storage_size ?? 0) / storageDivider,
+        step: (storageDef?.step ?? storageDivider) / storageDivider,
+        unit: 'GB',
+        divider: storageDivider,
       }
     }
 
@@ -591,11 +572,8 @@ const CreateProjectPage: NextPageWithLayout = () => {
       project_limits[apiKey] = (values.projectLimits as any)[key] * divider
     }
     if (!values.includeFileStorage && sliderKeys.includes('storage')) {
-      const { storage_size, ...restPerBranch } = per_branch_limits
-      const { storage_size: _, ...restProject } = project_limits
-      
-      per_branch_limits = restPerBranch
-      project_limits = restProject
+      per_branch_limits.storage_size = 0
+      project_limits.storage_size = 0
     }
 
     const data: ProjectCreateVariables = {

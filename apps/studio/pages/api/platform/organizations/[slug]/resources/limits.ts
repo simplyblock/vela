@@ -6,7 +6,7 @@ import { getVelaClient } from 'data/vela/vela'
 const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   const { slug } = getPlatformQueryParams(req, 'slug')
   const client = getVelaClient(req)
-  return client.proxyGet(res, '/resources/organizations/{organization_id}/limits/provisioning', {
+  return client.proxyGet(res, '/organizations/{organization_id}/resources/limits/', {
     params: {
       path: {
         organization_id: slug,
@@ -15,10 +15,10 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   })
 }
 
-const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
+const handlePut = async (req: NextApiRequest, res: NextApiResponse) => {
   const { slug } = getPlatformQueryParams(req, 'slug')
   const client = getVelaClient(req)
-  return client.proxyPost(res, '/resources/organizations/{organization_id}/limits/provisioning', {
+  return client.proxyPut(res, '/organizations/{organization_id}/resources/limits/', {
     params: {
       path: {
         organization_id: slug,
@@ -28,6 +28,6 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
   })
 }
 
-const apiHandler = apiBuilder((builder) => builder.useAuth().get(handleGet).post(handlePost))
+const apiHandler = apiBuilder((builder) => builder.useAuth().get(handleGet).put(handlePut))
 
 export default apiHandler

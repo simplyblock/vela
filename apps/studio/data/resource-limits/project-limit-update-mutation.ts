@@ -1,5 +1,5 @@
 import { components } from '../vela/vela-schema'
-import { handleError, post } from '../fetchers'
+import { handleError, put } from '../fetchers'
 import { ResponseError } from '../../types'
 import { useMutation, UseMutationOptions, useQueryClient } from '@tanstack/react-query'
 import { resourceLimitsKeys } from './keys'
@@ -8,14 +8,14 @@ import { toast } from 'sonner'
 interface ProjectLimitUpdateVariables {
   orgRef: string
   projectRef: string
-  limit: components['schemas']['ProvLimitPayload']
+  limits: components['schemas']['Limits']
 }
 
 async function updateProjectLimit(
-  { orgRef, projectRef, limit }: ProjectLimitUpdateVariables,
+  { orgRef, projectRef, limits }: ProjectLimitUpdateVariables,
   signal?: AbortSignal
 ) {
-  const { data, error } = await post(
+  const { data, error } = await put(
     '/platform/organizations/{slug}/projects/{ref}/resources/limits',
     {
       params: {
@@ -24,7 +24,7 @@ async function updateProjectLimit(
           ref: projectRef,
         },
       },
-      body: limit,
+      body: limits,
       signal,
     }
   )

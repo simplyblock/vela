@@ -24,8 +24,7 @@ async function getOrgAvailableCreationResources(
   if (error) handleError(error)
   return data as OrgAvailableCreationResourcesData
 }
-//Ebrahim: FIXME: platform OpenAPI currently types this endpoint incorrectly.
-export type OrgAvailableCreationResourcesData = VelaComponents['schemas']['ResourceLimitsPublic']
+export type OrgAvailableCreationResourcesData = VelaComponents['schemas']['Resources']
 export type OrgAvailableCreationResourcesError = ResponseError
 
 export const useOrgAvailableCreationResourcesQuery = <TData = OrgAvailableCreationResourcesData>(

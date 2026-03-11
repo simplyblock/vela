@@ -2,52 +2,76 @@
 
 - Status: Draft
 - Target release: Phased (see rollout plan)
-- Last updated: 2026-03-03
+- Last updated: 2026-03-09
 
 ## 1. Summary
 
-`vela-controller` currently assumes a simplyblock-backed deployment for key storage behaviors (per-branch StorageClass creation with QoS parameters, volume usage/performance metering via simplyblock API, and default snapshot class naming). This creates friction for smaller self-hosted setups where operators want a single host with ZFS, LVM, or other snapshot-capable storage.
+`vela-controller` currently assumes a simplyblock-backed deployment for key storage behaviors (per-branch StorageClass
+creation with QoS parameters, volume usage/performance metering via simplyblock API, and default snapshot class naming).
+This creates friction for smaller self-hosted setups where operators want a single host with ZFS, LVM, or other
+snapshot-capable storage.
 
 This RFC proposes:
 
 1. A storage backend abstraction layer in `vela-controller` with explicit capabilities.
-2. A phased implementation with first-class `zfs` and `lvm` backends, plus an optional `generic-csi` fallback for minimal compatibility (including btrfs-based deployments via qcow2 fallback mode).
-3. Capability-aware APIs so `vela-studio` can adapt UX (especially around QoS/performance and storage controls) per backend.
+2. A phased implementation with first-class `zfs` and `lvm` backends, plus an optional `generic-csi` fallback for
+   minimal compatibility (including btrfs-based deployments via qcow2 fallback mode).
+3. Capability-aware APIs so `vela-studio` can adapt UX (especially around QoS/performance and storage controls) per
+   backend.
 
-The design is Kubernetes-only and keeps branch clone/restore semantics based on Kubernetes `VolumeSnapshot`, while removing hard coupling to simplyblock APIs and names.
+The design is Kubernetes-only and keeps branch clone/restore semantics based on Kubernetes `VolumeSnapshot`, while
+removing hard coupling to simplyblock APIs and names.
 
 ## 2. Motivation
 
 Self-hosting adoption is blocked by current assumptions:
 
-- Controller hard-codes simplyblock resources and defaults:
-  - `SIMPLYBLOCK_CSI_STORAGE_CLASS = "simplyblock-csi-sc"` in `vela-controller/src/deployment/__init__.py`
-  - `_VOLUME_SNAPSHOT_CLASS = "simplyblock-csi-snapshotclass"` in `vela-controller/src/api/organization/project/branch/__init__.py`
-  - backup defaults also use `"simplyblock-csi-snapshotclass"` in `vela-controller/src/api/backup.py` and `vela-controller/src/api/backupmonitor.py`
+- Controller still defaults to simplyblock resources and contracts:
+    - `SIMPLYBLOCK_CSI_STORAGE_CLASS = "simplyblock-csi-sc"` in `vela-controller/src/deployment/__init__.py`
+    - `_VOLUME_SNAPSHOT_CLASS = "simplyblock-csi-snapshotclass"` in
+      `vela-controller/src/api/organization/project/branch/__init__.py`
+    - backup paths resolve `VOLUME_SNAPSHOT_CLASS` from environment, but still default to
+      `"simplyblock-csi-snapshotclass"` in `vela-controller/src/api/backup.py` and
+      `vela-controller/src/api/backupmonitor.py`
+    - simplyblock CSI namespace is now setting-driven (`vela_simplyblock_csi_namespace`) but
+      configmap/secret/storageclass identifiers remain simplyblock-specific
 - QoS lifecycle is simplyblock-specific:
-  - `update_branch_volume_iops()` updates volumes via simplyblock API.
-  - resource monitor queries usage via simplyblock volume iostats (`api/resources.py`).
+    - `update_branch_volume_iops()` updates volumes via simplyblock API.
+    - resource monitor queries usage via simplyblock volume iostats (`api/resources.py`).
 - Helm defaults still reference simplyblock storage classes in `vela-controller/src/deployment/charts/vela/values.yaml`.
-- Current Terraform automation (`vela-terraform/addons/simplyblock.tf`, related addon defaults) is also simplyblock-centric, which reinforces a single backend path in real deployments.
-- Studio currently assumes `iops` exists and is meaningful in branch create/resize flows (`apps/studio/components/interfaces/Branch/NewBranchForm.tsx`, `ResizeBranchModal.tsx`) and slider limit construction (`apps/studio/data/resource-limits/branch-slider-resource-limits.ts`).
+- Current Terraform automation (`vela-terraform/addons/simplyblock.tf`, related addon defaults) is also
+  simplyblock-centric, which reinforces a single backend path in real deployments.
+- Studio currently assumes `iops` exists and is meaningful in branch create/resize flows (
+  `apps/studio/components/interfaces/Branch/NewBranchForm.tsx`, `ResizeBranchModal.tsx`) and slider limit construction (
+  `apps/studio/data/resource-limits/branch-slider-resource-limits.ts`).
 
 At the same time, an important part is already generic:
 
-- Clone/restore operations are implemented using Kubernetes snapshot APIs (`deployment/kubernetes/snapshot.py`, `volume_clone.py`) and are not inherently tied to simplyblock, provided the underlying CSI backend supports required features.
+- Clone/restore operations are implemented using Kubernetes snapshot APIs (`deployment/kubernetes/snapshot.py`,
+  `volume_clone.py`) and are not inherently tied to simplyblock, provided the underlying CSI backend supports required
+  features.
 
-## 2.1 Current implementation verification (as of 2026-03-03)
+## 2.1 Current implementation verification (as of 2026-03-09)
 
-Storage abstraction is not yet implemented; current branch storage lifecycle is still simplyblock-oriented in runtime behavior.
+Storage abstraction is not yet implemented; current branch storage lifecycle is still simplyblock-oriented in runtime
+behavior.
 
 Verified facts:
 
-1. Branch provisioning uses per-branch StorageClass generation cloned from `simplyblock-csi-sc` and injects simplyblock-specific QoS parameters.
+1. Branch provisioning uses per-branch StorageClass generation cloned from `simplyblock-csi-sc` and injects
+   simplyblock-specific QoS parameters.
 2. Runtime resize path for IOPS calls simplyblock API (`update_branch_volume_iops`) directly.
-3. Resource usage collection derives IOPS from simplyblock stats API fields and falls back to schema-required numeric values.
-4. Snapshot class selection for clone/restore and backup defaults is still hardcoded to simplyblock snapshot class names in multiple modules.
-5. Data model and deployment parameters currently treat `iops` as required in key create/clone/resize paths.
+3. Resource usage collection derives IOPS and per-volume used bytes (including PITR WAL volume usage when enabled) from
+   simplyblock stats API fields and falls back to schema-required numeric values.
+4. Snapshot class selection for clone/restore is still hardcoded to simplyblock snapshot class in branch API;
+   backup/monitor paths are env-configurable but default to simplyblock snapshot class.
+5. Clone sizing now resolves source database volume size through simplyblock API (
+   `resolve_branch_database_volume_size`), reinforcing backend coupling in clone validation.
+6. Data model and deployment parameters still treat `iops` as required in key create/clone/resize paths (with current
+   minimum/step aligned to 1000 increments).
 
-Implication: rollout must start with an internal abstraction layer that preserves current behavior via a simplyblock adapter before introducing new backends.
+Implication: rollout must start with an internal abstraction layer that preserves current behavior via a simplyblock
+adapter before introducing new backends.
 
 ## 3. Goals
 
@@ -68,23 +92,25 @@ Implication: rollout must start with an internal abstraction layer that preserve
 ## 5.1 Strong coupling points in controller
 
 - Backend-specific constants and credential loading in `deployment/__init__.py`:
-  - simplyblock namespace/configmap/secret/storageclass names.
-  - per-branch StorageClass cloning with simplyblock QoS parameters (`qos_rw_iops`, etc.).
+    - simplyblock configmap/secret/storageclass names and namespace setting (`simplyblock_csi_namespace`).
+    - per-branch StorageClass cloning with simplyblock QoS parameters (`qos_rw_iops`, etc.).
 - simplyblock API client in `deployment/simplyblock_api.py`, used for:
-  - volume iostats collection.
-  - runtime QoS updates (currently IOPS).
-- Resource monitor (`api/resources.py`) depends on simplyblock volume UUID extraction and simplyblock iostats payload keys.
+    - volume iostats collection.
+    - runtime QoS updates (currently IOPS).
+- Resource monitor (`api/resources.py`) depends on simplyblock volume UUID extraction and simplyblock iostats payload
+  keys.
 - Deployment and model contracts currently require `iops` (current QoS representation):
-  - `DeploymentParameters.iops` is mandatory in `deployment/deployment.py`.
-  - clone-from-source validation requires `iops` in branch API.
-  - branch model and public schemas expose `iops` as required.
+    - `DeploymentParameters.iops` is mandatory in `deployment/deployment.py`.
+    - clone-from-source validation requires `iops` in branch API.
+    - branch model and public schemas expose `iops` as required.
 
 ## 5.2 Existing generic strengths
 
-- Snapshot workflows use K8s CRDs (`VolumeSnapshot`, `VolumeSnapshotContent`) and should work with any CSI driver that supports:
-  - snapshots.
-  - restore from snapshot.
-  - PVC expand (already used for resize).
+- Snapshot workflows use K8s CRDs (`VolumeSnapshot`, `VolumeSnapshotContent`) and should work with any CSI driver that
+  supports:
+    - snapshots.
+    - restore from snapshot.
+    - PVC expand (already used for resize).
 
 ## 5.3 Studio assumptions
 
@@ -100,10 +126,11 @@ Introduce a pluggable storage backend interface in `vela-controller`.
 Branch lifecycle
   -> Branch API
      -> StorageBackend (selected by config)
-        - classes/provisioning policy
-        - snapshot class resolution
-        - QoS update (optional)
-        - usage collection (optional granular metrics)
+        - provisioning / lookup
+        - capability / policy validation
+     -> VolumeGroup / Volume / Snapshot entities
+        - lifecycle operations (resize/delete/snapshot/restore/clone)
+        - QoS + usage operations
 ```
 
 ### 6.1 Backend types (Kubernetes)
@@ -111,7 +138,8 @@ Branch lifecycle
 1. `simplyblock` (existing behavior, compatibility baseline).
 2. `zfs` (first-class backend with capability mapping tuned for ZFS-based storage stacks).
 3. `lvm` (first-class backend with capability mapping tuned for Linux LVM logical volume workflows).
-4. `generic-csi` (optional fallback adapter with minimal guaranteed feature set, including btrfs filesystem-backed qcow2 fallback).
+4. `generic-csi` (optional fallback adapter with minimal guaranteed feature set, including btrfs filesystem-backed qcow2
+   fallback).
 
 ### 6.2 Capabilities model
 
@@ -144,11 +172,15 @@ Every backend reports capabilities:
 - `supports_topology_awareness`: Can express topology/placement constraints (node/zone affinity).
 - `supports_encrypted_volumes`: Supports backend volume encryption capabilities.
 - `supports_consistency_group_snapshots`: Supports crash-consistent group snapshots across volumes.
+- `supports_volume_groups`: Supports backend-managed volume groups as first-class entities.
+- `supports_volume_group_qos`: Supports QoS controls at volume-group level.
+- `supports_volume_group_throughput`: Supports throughput controls at volume-group level.
 - `supports_clone_without_snapshot`: Supports direct volume cloning without an explicit snapshot object.
 - `supports_fast_clone`: Supports backend-native fast clone semantics (typically COW/metadata clone).
 - `supports_backup_snapshot_labels`: Supports custom labels/metadata on backup snapshots.
 - `supports_restore_size_discovery`: Can discover/validate restore size requirements from snapshot metadata.
-- `supports_vm_live_migration`: Supports storage characteristics required for NeonVM live migration without storage relocation interruption.
+- `supports_vm_live_migration`: Supports storage characteristics required for NeonVM live migration without storage
+  relocation interruption.
 - `supports_volume_relocation`: Supports backend-driven volume relocation/mobility workflows between nodes.
 
 These capabilities drive:
@@ -169,41 +201,54 @@ Add a backend module (example path: `src/deployment/storage_backends/`) with:
 - `GenericCsiBackend` (minimal fallback).
 - factory from settings.
 
-Core methods (grouped by functionality):
+Core model (grouped by responsibility):
 
-Provisioning and lifecycle:
+`StorageBackend` responsibilities:
 
-- `resolve_storage_class(branch_id, requested_qos: VolumeQosProfile | None) -> str`
-- `provision_volume(branch_id, volume_kind, size_bytes, qos: VolumeQosProfile | None, use_existing=False) -> ProvisionedVolume`
-- `resize_volume(branch_id, volume_kind, new_size_bytes) -> None`
-- `delete_volume(branch_id, volume_kind) -> None`
-- `relocate_volume(branch_id, volume_kind, target_node: str | None = None) -> None`
+- provisioning and lookup:
+    - `resolve_storage_class(branch_id, requested_qos: VolumeQosProfile | None) -> str`
+    - `resolve_snapshot_class() -> str`
+    -
+    `provision_volume_group(branch_id, group_name, volumes, qos: VolumeQosProfile | None, throughput_mibps: int | None = None, use_existing=False) -> VolumeGroup`
+    - `lookup_volume_group(branch_id, group_name) -> VolumeGroup | None`
+    - `provision_volume(branch_id, volume_kind, size_bytes, qos: VolumeQosProfile | None, use_existing=False) -> Volume`
+    - `lookup_volume(branch_id, volume_kind) -> Volume | None`
+    - `lookup_snapshot(branch_id, snapshot_ref: SnapshotRef) -> Snapshot | None`
+- policy/capability:
+    - `validate_qos_profile(qos: VolumeQosProfile) -> None`
+    - `get_volume_capabilities(volume_kind) -> VolumeCapabilities`
+    - `validate_capabilities_for_operation(operation, params) -> None`
+- telemetry:
+    - `collect_usage(branch, namespace) -> ResourceUsageDefinitionPartial`
 
-Snapshot and data movement:
+`Volume` entity responsibilities:
 
-- `resolve_snapshot_class() -> str`
-- `snapshot_volume(namespace, pvc_name, label, backup_id) -> SnapshotDetails`
-- `clone_volume_from_snapshot(source_branch_id, target_branch_id, database_size, pitr_enabled) -> None`
-- `restore_volume_from_snapshot(source_branch_id, target_branch_id, snapshot_namespace, snapshot_name, snapshot_content_name, database_size) -> None`
+- `resize(new_size_bytes) -> None`
+- `delete() -> None`
+- `snapshot(label, backup_id) -> Snapshot`
+- `update_performance(qos: VolumeQosProfile) -> None`
+- `usage() -> VolumeUsage | None`
+- optional: `relocate(target_node: str | None = None) -> None`
 
-Performance and QoS:
+`VolumeGroup` entity responsibilities:
 
-- `update_volume_performance(branch_id, volume_kind, qos: VolumeQosProfile) -> None` (optional; capability-gated)
-- `validate_qos_profile(qos: VolumeQosProfile) -> None`
+- `delete() -> None`
+- `update_performance(qos: VolumeQosProfile) -> None`
+- `update_throughput_limit(mibps: int | None) -> None`
+- `volumes() -> list[Volume]`
 
-Capabilities and telemetry:
+`Snapshot` entity responsibilities:
 
-- `get_volume_capabilities(volume_kind) -> VolumeCapabilities`
-- `get_volume_usage(branch_id, volume_kind) -> VolumeUsage | None`
-- `collect_usage(branch, namespace) -> ResourceUsageDefinitionPartial`
+- `delete() -> None`
+- `restore_to(target_volume: Volume, database_size: int) -> None`
+- optional: `clone_to(target_volume: Volume, database_size: int, pitr_enabled: bool) -> None`
 
-Validation and operation gating:
+`ensure_branch_storage_class()` and runtime performance updates in `deployment/__init__.py` become
+backend/entity-dispatched wrappers.
 
-- `validate_capabilities_for_operation(operation, params) -> None`
-
-`ensure_branch_storage_class()` and runtime volume performance updates in `deployment/__init__.py` become backend-dispatched wrappers.
-
-Snapshot/clone/restore should be invoked through backend operations rather than composing low-level snapshot calls in API handlers, so backend-specific behavior (class resolution, metadata handling, feature fallbacks) remains encapsulated.
+Snapshot/clone/restore should be invoked through `Volume`/`Snapshot` operations rather than composing low-level snapshot
+calls in API handlers, so backend-specific behavior (class resolution, metadata handling, feature fallbacks) remains
+encapsulated.
 
 `VolumeQosProfile` should be forward-compatible and allow:
 
@@ -214,21 +259,28 @@ Snapshot/clone/restore should be invoked through backend operations rather than 
 - `max_write_mibps`
 - `max_read_write_mibps`
 
-Backends that only support a subset (for example only combined IOPS and not throughput) can reject unsupported fields via `validate_qos_profile` and report capability flags accordingly.
+Backends that only support a subset (for example only combined IOPS and not throughput) can reject unsupported fields
+via `validate_qos_profile` and report capability flags accordingly. The same policy applies for group-level
+QoS/throughput when `VolumeGroup` is used.
 
 Live migration note:
 
 - If `supports_vm_live_migration=true`, NeonVM live migration can proceed without a storage relocation checkpoint flow.
-- If `supports_vm_live_migration=false`, migration workflow must fallback to: checkpoint VM -> relocate volume -> resume VM.
+- If `supports_vm_live_migration=false`, migration workflow must fallback to: checkpoint VM -> relocate volume -> resume
+  VM.
 
 ## 7.2 Settings/config changes
 
 Add deployment settings:
 
-- `vela_storage_backend` (`simplyblock` | `zfs` | `lvm` | `generic-csi`): Selects the storage backend adapter implementation.
-- `vela_storage_default_class`: Default Kubernetes `StorageClass` used for volume provisioning when no branch-specific override is required.
-- `vela_storage_snapshot_class`: Default Kubernetes `VolumeSnapshotClass` used for backup/clone/restore snapshot operations.
-- `vela_storage_qos_policy` (`strict` | `best_effort`): Defines whether unsupported QoS requests should fail fast (`strict`) or degrade according to backend support (`best_effort`).
+- `vela_storage_backend` (`simplyblock` | `zfs` | `lvm` | `generic-csi`): Selects the storage backend adapter
+  implementation.
+- `vela_storage_default_class`: Default Kubernetes `StorageClass` used for volume provisioning when no branch-specific
+  override is required.
+- `vela_storage_snapshot_class`: Default Kubernetes `VolumeSnapshotClass` used for backup/clone/restore snapshot
+  operations.
+- `vela_storage_qos_policy` (`strict` | `best_effort`): Defines whether unsupported QoS requests should fail fast (
+  `strict`) or degrade according to backend support (`best_effort`).
 
 Keep current simplyblock defaults when unset for backward compatibility.
 
@@ -247,9 +299,10 @@ Phase 1 (minimal schema break):
 
 - Keep DB/model `iops` field required as the current QoS baseline.
 - For backends without runtime QoS support:
-  - accept supported QoS fields in API as logical allocation where needed.
-  - skip unsupported backend runtime updates (`no-op` with explicit capability status) unless `vela_storage_qos_policy=strict`.
-  - avoid hard failure on unsupported update in `best_effort` mode.
+    - accept supported QoS fields in API as logical allocation where needed.
+    - skip unsupported backend runtime updates (`no-op` with explicit capability status) unless
+      `vela_storage_qos_policy=strict`.
+    - avoid hard failure on unsupported update in `best_effort` mode.
 
 Phase 2 (clean model):
 
@@ -263,7 +316,8 @@ Current metering uses simplyblock iostats. For `zfs`/`lvm`/`generic-csi`:
 
 - `nvme_bytes` and `storage_bytes`: attempt backend metric provider or fallback provider.
 - performance usage (`iops`, throughput):
-  - if unavailable, set value to `0` only when required by legacy schema and mark metric as unavailable in capability/status endpoint.
+    - if unavailable, set value to `0` only when required by legacy schema and mark metric as unavailable in
+      capability/status endpoint.
 
 Add explicit metadata so clients can distinguish zero usage from unavailable usage.
 
@@ -284,7 +338,8 @@ Also include capabilities in branch/public metadata responses for easy UI consum
 
 Compatibility note:
 
-- endpoint is additive; existing API consumers must continue functioning when capability metadata is absent during transition.
+- endpoint is additive; existing API consumers must continue functioning when capability metadata is absent during
+  transition.
 
 ## 7.7 Helm/deployment changes
 
@@ -296,7 +351,8 @@ Replace hard defaults in chart values with configurable values from backend sett
 
 For `zfs`/`lvm` backends, backend adapters may enforce backend-specific class and QoS constraints.
 
-For `generic-csi`, use one operator-provided class by default and do not synthesize per-branch StorageClass manifests unless explicitly enabled.
+For `generic-csi`, use one operator-provided class by default and do not synthesize per-branch StorageClass manifests
+unless explicitly enabled.
 
 ## 8. Proposed Studio Changes
 
@@ -318,7 +374,8 @@ Hotspots:
 
 Migration note:
 
-- keep legacy UI behavior until capability endpoint is available; then progressively gate controls by reported capabilities.
+- keep legacy UI behavior until capability endpoint is available; then progressively gate controls by reported
+  capabilities.
 
 ## 8.2 Payload shape behavior
 
@@ -335,7 +392,8 @@ When storage metrics unavailable:
 
 ## 9.1 Recommended phase-1 path: `zfs` and `lvm` first-class adapters
 
-For single-host deployments, first-class adapters should target ZFS and Linux LVM environments directly (still Kubernetes + CSI based), with explicit capability mapping and validation per backend.
+For single-host deployments, first-class adapters should target ZFS and Linux LVM environments directly (still
+Kubernetes + CSI based), with explicit capability mapping and validation per backend.
 
 Minimum requirements:
 
@@ -351,8 +409,10 @@ Rationale:
 - Avoids redesigning the current Kubernetes storage lifecycle.
 - Lowest risk, fastest time to value.
 
-`generic-csi` remains available as a fallback adapter for environments that are CSI-compatible but do not have dedicated backend adapters yet (including btrfs filesystem-backed deployments through qcow2 fallback mode).
-`lvm` is expected to provide native block volumes and snapshots, while typically exposing a reduced QoS feature set versus simplyblock.
+`generic-csi` remains available as a fallback adapter for environments that are CSI-compatible but do not have dedicated
+backend adapters yet (including btrfs filesystem-backed deployments through qcow2 fallback mode).
+`lvm` is expected to provide native block volumes and snapshots, while typically exposing a reduced QoS feature set
+versus simplyblock.
 
 ## 9.2 Filesystem-only backend fallback (degraded mode)
 
@@ -362,14 +422,16 @@ If a backend cannot provide native block PVCs (`supports_block_volume_mode=false
 2. create a `qcow2` virtual disk image file inside that filesystem.
 3. attach the qcow2 image directly via QEMU in NeonVM (no loopback layer).
 
-`qcow2` is the only supported image format for this fallback, because it is natively supported by QEMU and provides sparse/snapshot-friendly semantics expected for degraded operation.
+`qcow2` is the only supported image format for this fallback, because it is natively supported by QEMU and provides
+sparse/snapshot-friendly semantics expected for degraded operation.
 
 This requirement applies only to fallback mode:
 
 - first-class `zfs`/`lvm` backends should prefer native block mode.
 - fallback adapters using qcow2-backed block fallback must use `qcow2`.
 
-When fallback mode is active (`supports_block_volume_mode=false`), API responses should mark deployment mode as degraded so Studio and operators can surface performance/operational caveats.
+When fallback mode is active (`supports_block_volume_mode=false`), API responses should mark deployment mode as degraded
+so Studio and operators can surface performance/operational caveats.
 
 ## 10. Compatibility and Migration
 
@@ -386,7 +448,8 @@ When fallback mode is active (`supports_block_volume_mode=false`), API responses
 3. Keep/add `generic-csi` as minimal fallback adapter.
 4. Enable capability endpoint and Studio conditional UX.
 5. Gradually relax IOPS-only assumptions in API/schema toward structured QoS.
-6. Introduce a `legacy-iops-compat` behavior mode during transition so unsupported backends can avoid hard failures while schema evolves.
+6. Introduce a `legacy-iops-compat` behavior mode during transition so unsupported backends can avoid hard failures
+   while schema evolves.
 
 ## 11. Rollout Plan
 
@@ -416,6 +479,7 @@ Phase D:
 ## 12. Testing Plan
 
 1. Unit tests:
+
 - backend interface contract tests.
 - simplyblock adapter parity tests.
 - zfs adapter behavior across full capability set.
@@ -423,34 +487,43 @@ Phase D:
 - generic-csi fallback behavior when features are unsupported (including btrfs qcow2 fallback profile).
 
 2. Integration tests on kind/k3s:
+
 - create branch.
 - clone with data.
 - restore from backup snapshot.
 - resize database/storage PVC.
 - QoS update behavior (IOPS/throughput) for supported/unsupported backends.
-- execute suite per backend profile (`simplyblock`, `zfs`, `lvm`, `generic-csi`) plus btrfs-on-generic-csi fallback profile.
-- negative tests: unsupported capability operations must fail with explicit, actionable error payloads in `strict` policy.
+- execute suite per backend profile (`simplyblock`, `zfs`, `lvm`, `generic-csi`) plus btrfs-on-generic-csi fallback
+  profile.
+- negative tests: unsupported capability operations must fail with explicit, actionable error payloads in `strict`
+  policy.
 
 3. Studio E2E:
+
 - forms render correctly by capability matrix.
 - payload generation excludes unsupported fields.
 - resize behavior and user messaging.
 
 4. Regression:
+
 - existing simplyblock path must pass current branch lifecycle tests unchanged.
 
 ## 13. Risks and Mitigations
 
 1. Risk: CSI implementations differ in snapshot semantics.
+
 - Mitigation: strict capability checks + backend compatibility matrix + fail fast with actionable errors.
 
 2. Risk: IOPS-only assumptions deeply embedded in API/schema and analytics.
+
 - Mitigation: phased approach with temporary logical IOPS handling before structured QoS schema changes.
 
 3. Risk: Metric parity gaps on non-simplyblock backends.
+
 - Mitigation: explicit capability flags and "metric unavailable" surfaces instead of silent zeros.
 
 4. Risk: Block device requirement from NeonVM may limit candidate drivers.
+
 - Mitigation: document minimum storage backend requirements clearly for self-hosting guide.
 
 ## 14. Operational Requirements for Supported Backends
@@ -463,8 +536,10 @@ A backend is considered "Vela-compatible (phase 1)" if it provides:
 4. PVC expansion.
 5. predictable namespace-scoped object lifecycle under controller operations.
 
-For first-class backend status (`zfs`, `lvm`), native block mode support is required (`supports_block_volume_mode=true`).
-`qcow2`-backed block fallback is acceptable only for fallback adapters (for example `generic-csi`) and must be labeled as degraded mode.
+For first-class backend status (`zfs`, `lvm`), native block mode support is required (
+`supports_block_volume_mode=true`).
+`qcow2`-backed block fallback is acceptable only for fallback adapters (for example `generic-csi`) and must be labeled
+as degraded mode.
 
 Optional but preferred:
 
@@ -474,64 +549,71 @@ Optional but preferred:
 
 ## 15. Open Questions
 
-1. Should `iops` become fully optional in API v1 once structured QoS fields exist, or remain required with backend defaults for compatibility?
-2. For unsupported QoS backends, should branch resize return success with no-op semantics or reject only unsupported changed fields?
-3. Do we want to gate branch cloning on `supports_volume_clone_cross_namespace`, or provide a slower fallback clone path?
+1. Should `iops` become fully optional in API v1 once structured QoS fields exist, or remain required with backend
+   defaults for compatibility?
+2. For unsupported QoS backends, should branch resize return success with no-op semantics or reject only unsupported
+   changed fields?
+3. Do we want to gate branch cloning on `supports_volume_clone_cross_namespace`, or provide a slower fallback clone
+   path?
 4. What minimum backend telemetry is required for billing-grade metering in self-hosted mode?
 5. Which Kubernetes CSI distributions/driver variants for ZFS and LVM will be listed as "tested/supported" in docs?
-6. Which qcow2 fallback implementation constraints (size expansion, crash recovery, snapshot restore semantics) are acceptable for degraded fallback mode?
-7. Which backends/drivers can satisfy NeonVM live migration requirements directly vs requiring checkpoint/relocate/resume fallback?
+6. Which qcow2 fallback implementation constraints (size expansion, crash recovery, snapshot restore semantics) are
+   acceptable for degraded fallback mode?
+7. Which backends/drivers can satisfy NeonVM live migration requirements directly vs requiring
+   checkpoint/relocate/resume fallback?
 
 ## 16. Concrete Code Change Map (Initial)
 
 Controller:
 
 - `vela-controller/src/deployment/__init__.py`
-  - extract simplyblock-specific logic to backend adapter
-  - remove hard-coded storage/snapshot assumptions from generic paths
+    - extract simplyblock-specific logic to backend adapter
+    - remove hard-coded storage/snapshot assumptions from generic paths
 - `vela-controller/src/deployment/simplyblock_api.py`
-  - keep as simplyblock adapter dependency
+    - keep as simplyblock adapter dependency
 - `vela-controller/src/api/organization/project/branch/__init__.py`
-  - replace `_VOLUME_SNAPSHOT_CLASS` constant usage with backend-resolved value
-  - make clone/restore flows capability-gated
+    - replace `_VOLUME_SNAPSHOT_CLASS` constant usage with backend-resolved value
+    - make clone/restore flows capability-gated
 - `vela-controller/src/api/backup.py`
 - `vela-controller/src/api/backupmonitor.py`
-  - use backend snapshot class resolver
+    - use backend snapshot class resolver
 - `vela-controller/src/api/resources.py`
-  - route usage collection through backend metrics provider
+    - route usage collection through backend metrics provider
 - `vela-controller/src/deployment/settings.py`
-  - add backend configuration fields
+    - add backend configuration fields
 - `vela-controller/src/api/system.py`
-  - expose storage capabilities endpoint
+    - expose storage capabilities endpoint
 
 Studio:
 
 - `apps/studio/components/interfaces/Branch/NewBranchForm.tsx`
 - `apps/studio/components/interfaces/Branch/ResizeBranchModal.tsx`
 - `apps/studio/data/resource-limits/branch-slider-resource-limits.ts`
-  - consume capabilities and render conditional controls
+    - consume capabilities and render conditional controls
 - add new client query for storage capabilities endpoint
 
 Terraform/Infra:
 
 - `vela-terraform/addons/`
-  - split storage backend addon wiring from simplyblock-only assumptions
-  - add backend-selectable module path (`simplyblock`, `zfs`, `lvm`, `generic-csi` fallback profile)
+    - split storage backend addon wiring from simplyblock-only assumptions
+    - add backend-selectable module path (`simplyblock`, `zfs`, `lvm`, `generic-csi` fallback profile)
 - `vela-terraform/README.md`
-  - document backend-specific prerequisites and tested combinations
+    - document backend-specific prerequisites and tested combinations
 - `vela-terraform/*tfvars*.example`
-  - expose backend selection and required variables by backend profile
+    - expose backend selection and required variables by backend profile
 
 Additional required touchpoints:
 
 - `vela-controller/src/deployment/deployment.py`
-  - evolve mandatory `iops` contract to capability-aware handling (phased compatibility)
+    - evolve mandatory `iops` contract to capability-aware handling (phased compatibility)
 - `vela-controller/src/models/branch.py` and migrations
-  - plan phased schema changes for structured/optional QoS fields
+    - plan phased schema changes for structured/optional QoS fields
 
 ## 17. Decision
 
-Adopt storage backend abstraction with first-class `zfs` and `lvm` backends (plus `generic-csi` fallback), and evolve Studio/Controller contracts to be capability-driven. This minimizes architecture churn while unlocking practical single-host deployments on Kubernetes CSI-backed storage stacks.
+Adopt storage backend abstraction with first-class `zfs` and `lvm` backends (plus `generic-csi` fallback), and evolve
+Studio/Controller contracts to be capability-driven. This minimizes architecture churn while unlocking practical
+single-host deployments on Kubernetes CSI-backed storage stacks.
 
 ## Appendix 1. Proposed Storage Backend API (Python)
 
@@ -569,13 +651,73 @@ class SnapshotDetails:
 
 
 @dataclass(frozen=True)
-class ProvisionedVolume:
+class SnapshotRef:
+    name: str
+    namespace: str
+    content_name: str | None = None
+
+
+@dataclass(frozen=True)
+class VolumeSpec:
+    volume_kind: VolumeKind
+    size_bytes: int
+
+
+class Volume:
+    branch_id: Identifier
     namespace: str
     pvc_name: str
     storage_class: str
     size_bytes: int
     volume_kind: VolumeKind
     used_existing: bool = False
+
+    _backend: StorageBackend
+
+    async def resize(self, new_size_bytes: int) -> None: ...
+
+    async def delete(self) -> None: ...
+
+    async def snapshot(self, label: str, backup_id: Identifier) -> Snapshot: ...
+
+    async def update_performance(self, qos: VolumeQosProfile) -> None: ...
+
+    async def usage(self) -> VolumeUsage | None: ...
+
+    async def relocate(self, target_node: str | None = None) -> None: ...
+
+
+class VolumeGroup:
+    branch_id: Identifier
+    name: str
+
+    _backend: StorageBackend
+
+    async def delete(self) -> None: ...
+
+    async def update_performance(self, qos: VolumeQosProfile) -> None: ...
+
+    async def update_throughput_limit(self, mibps: int | None) -> None: ...
+
+    async def volumes(self) -> list[Volume]: ...
+
+
+class Snapshot:
+    branch_id: Identifier
+    details: SnapshotDetails
+
+    _backend: StorageBackend
+
+    async def delete(self) -> None: ...
+
+    async def restore_to(self, target_volume: Volume, database_size: int) -> None: ...
+
+    async def clone_to(
+            self,
+            target_volume: Volume,
+            database_size: int,
+            pitr_enabled: bool,
+    ) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -615,6 +757,9 @@ class VolumeCapabilities:
     supports_topology_awareness: bool
     supports_encrypted_volumes: bool
     supports_consistency_group_snapshots: bool
+    supports_volume_groups: bool
+    supports_volume_group_qos: bool
+    supports_volume_group_throughput: bool
     supports_clone_without_snapshot: bool
     supports_fast_clone: bool
     supports_backup_snapshot_labels: bool
@@ -638,98 +783,64 @@ class VolumeCapabilities:
 class StorageBackend(Protocol):
     name: str
 
-    async def resolve_storage_class(
-        self,
-        branch_id: Identifier,
-        requested_qos: VolumeQosProfile | None,
+    def resolve_storage_class(
+            self,
+            branch_id: Identifier,
+            requested_qos: VolumeQosProfile | None,
     ) -> str: ...
 
-    async def resolve_snapshot_class(self) -> str: ...
+    def resolve_snapshot_class(self) -> str: ...
 
     async def provision_volume(
-        self,
-        branch_id: Identifier,
-        volume_kind: VolumeKind,
-        size_bytes: int,
-        qos: VolumeQosProfile | None,
-        *,
-        use_existing: bool = False,
-    ) -> ProvisionedVolume: ...
+            self,
+            branch_id: Identifier,
+            volume_kind: VolumeKind,
+            size_bytes: int,
+            qos: VolumeQosProfile | None,
+            use_existing: bool = False,
+    ) -> Volume: ...
 
-    async def resize_volume(
-        self,
-        branch_id: Identifier,
-        volume_kind: VolumeKind,
-        new_size_bytes: int,
-    ) -> None: ...
+    async def provision_volume_group(
+            self,
+            branch_id: Identifier,
+            group_name: str,
+            volumes: list[VolumeSpec],
+            qos: VolumeQosProfile | None,
+            throughput_mibps: int | None = None,
+            use_existing: bool = False,
+    ) -> VolumeGroup: ...
 
-    async def delete_volume(
-        self,
-        branch_id: Identifier,
-        volume_kind: VolumeKind,
-    ) -> None: ...
+    async def lookup_volume(
+            self,
+            branch_id: Identifier,
+            volume_kind: VolumeKind,
+    ) -> Volume | None: ...
 
-    async def relocate_volume(
-        self,
-        branch_id: Identifier,
-        volume_kind: VolumeKind,
-        target_node: str | None = None,
-    ) -> None: ...
+    async def lookup_volume_group(
+            self,
+            branch_id: Identifier,
+            group_name: str,
+    ) -> VolumeGroup | None: ...
 
-    async def snapshot_volume(
-        self,
-        namespace: str,
-        pvc_name: str,
-        label: str,
-        backup_id: Identifier,
-    ) -> SnapshotDetails: ...
-
-    async def clone_volume_from_snapshot(
-        self,
-        source_branch_id: Identifier,
-        target_branch_id: Identifier,
-        database_size: int,
-        pitr_enabled: bool,
-    ) -> None: ...
-
-    async def restore_volume_from_snapshot(
-        self,
-        source_branch_id: Identifier,
-        target_branch_id: Identifier,
-        snapshot_namespace: str,
-        snapshot_name: str,
-        snapshot_content_name: str | None,
-        database_size: int,
-    ) -> None: ...
-
-    async def update_volume_performance(
-        self,
-        branch_id: Identifier,
-        volume_kind: VolumeKind,
-        qos: VolumeQosProfile,
-        *,
-        policy: QosPolicy = "strict",
-    ) -> None: ...
+    async def lookup_snapshot(
+            self,
+            branch_id: Identifier,
+            snapshot_ref: SnapshotRef,
+    ) -> Snapshot | None: ...
 
     def validate_qos_profile(self, qos: VolumeQosProfile) -> None: ...
 
     def get_volume_capabilities(self, volume_kind: VolumeKind) -> VolumeCapabilities: ...
 
-    async def get_volume_usage(
-        self,
-        branch_id: Identifier,
-        volume_kind: VolumeKind,
-    ) -> VolumeUsage | None: ...
-
     async def collect_usage(
-        self,
-        branch: Any,
-        namespace: str,
+            self,
+            branch: Any,
+            namespace: str,
     ) -> ResourceUsageDefinitionPartial: ...
 
     def validate_capabilities_for_operation(
-        self,
-        operation: str,
-        params: dict[str, Any],
+            self,
+            operation: str,
+            params: dict[str, Any],
     ) -> None: ...
 ```

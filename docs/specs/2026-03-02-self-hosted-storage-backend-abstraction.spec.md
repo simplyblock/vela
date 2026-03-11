@@ -7,11 +7,14 @@
 
 Verified active coupling points (from current code):
 
-1. `vela-controller/src/deployment/__init__.py` has simplyblock-specific class/qos/runtime API calls.
-2. `vela-controller/src/api/organization/project/branch/__init__.py` uses hardcoded snapshot class expectations.
-3. `vela-controller/src/api/backup.py` and `backupmonitor.py` use simplyblock snapshot defaults.
-4. `vela-controller/src/deployment/deployment.py` and `vela-controller/src/models/branch.py` treat `iops` as required.
-5. Terraform includes always-on simplyblock addon resources.
+Validation baseline: `vela-controller` submodule at `c1c46adec8275703443721419ef147c9b14832b6` (2026-03-09).
+
+1. `vela-controller/src/deployment/__init__.py` has simplyblock-specific class/qos/runtime API calls and simplyblock-specific credential discovery (with namespace configurable via settings).
+2. `vela-controller/src/api/organization/project/branch/__init__.py` uses hardcoded snapshot class for clone/restore flows.
+3. `vela-controller/src/api/backup.py` and `backupmonitor.py` resolve `VOLUME_SNAPSHOT_CLASS` from env, but default to simplyblock snapshot class.
+4. `vela-controller/src/deployment/deployment.py` and `vela-controller/src/models/branch.py` treat `iops` as required (current minimum/step aligned to 1000 increments).
+5. Clone sizing path depends on simplyblock API (`resolve_branch_database_volume_size`) to validate source volume size.
+6. Terraform includes always-on simplyblock addon resources.
 
 ## Invariants
 
@@ -59,7 +62,7 @@ Verified active coupling points (from current code):
 
 ## Verification Protocol
 
-1. `cd vela-controller && pytest -q tests/storage_backends`
+1. Add `tests/storage_backends` (currently absent in this submodule revision), then run `cd vela-controller && pytest -q tests/storage_backends`
 2. Run parity tests against current simplyblock fixtures.
 3. Run matrix tests for `simplyblock`, `zfs`, `lvm`, `generic-csi` profiles.
 4. Validate migration up/down and legacy record behavior.

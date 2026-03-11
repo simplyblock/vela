@@ -69,13 +69,16 @@ Observed in current `vela-controller` code:
 DNS manager implementations must report explicit capabilities. Initial capability flags:
 
 - `supports_a_records`: Can manage `A` records.
-- `supports_aaaa_records`: Can manage `AAAA` records.
+- `supports_aaaa_records`: Can manage `AAAA` records.  more places, not just the DNS implementation?
 - `supports_cname_records`: Can manage `CNAME` records.
 - `supports_txt_records`: Can manage `TXT` records.
 - `supports_wildcard_records`: Can manage wildcard hostnames (`*.example.com`).
 - `supports_proxied_records`: Can configure provider-specific proxy/CDN behavior for records.
 - `supports_ownership_tags`: Can store/query ownership metadata/tags for managed record lifecycle.
 
+Q: is there really any downstream controller behaviour existent that requires anything else but a records? and maybe cname?
+   what would that be?
+   
 These capabilities drive:
 
 - Controller behavior (enforce, reject, or degrade).
@@ -248,10 +251,10 @@ Phase C:
 
 ## 14. Open Questions
 
-1. Which record types are mandatory in v1 (`A/AAAA/CNAME/TXT`)?
-2. Do we require wildcard support for all managers in v1?
-3. Should DNS policy be global-only or overridable per workspace/project?
-4. How much drift correction should happen automatically vs manual approval?
+1. Which record types are mandatory in v1 (`A/AAAA/CNAME/TXT`)? C: I think A, CNAME
+2. Do we require wildcard support for all managers in v1? No
+3. Should DNS policy be global-only or overridable per workspace/project? Global only
+4. How much drift correction should happen automatically vs manual approval? Not understood?
 
 ## 15. Decision
 

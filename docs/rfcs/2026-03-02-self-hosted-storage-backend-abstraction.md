@@ -15,7 +15,7 @@ This RFC proposes:
 
 1. A storage backend abstraction layer in `vela-controller` with explicit capabilities.
 2. A phased implementation with first-class `zfs` and `lvm` backends, plus an optional `generic-csi` fallback for
-   minimal compatibility (including btrfs-based deployments via qcow2 fallback mode).
+   minimal compatibility (including btrfs-based deployments via qcow2 fallback mode). 
 3. Capability-aware APIs so `vela-studio` can adapt UX (especially around QoS/performance and storage controls) per
    backend.
 
@@ -75,16 +75,17 @@ adapter before introducing new backends.
 
 ## 3. Goals
 
-1. Support self-hosted single-node storage backends (starting with ZFS/LVM via CSI) without requiring simplyblock.
-2. Preserve branch create/clone/restore/backup UX parity where backend capabilities allow.
-3. Make backend limitations explicit and visible in API and Studio.
-4. Keep simplyblock as first-class backend with no regression.
+1. Support self-hosted single-node, basic (non-advanced) storage backends (starting with ZFS/LVM via CSI) without requiring simplyblock.
+2. Implemented limited support for LVM.
+3. Preserve branch create/clone/restore/backup UX parity where backend capabilities allow.
+4. Make backend limitations explicit and visible in API and Studio.
+5. Keep simplyblock as first-class backend with no regression.
 
 ## 4. Non-Goals
 
 1. Replacing NeonVM autoscaling compute orchestration in this RFC.
 2. Supporting non-Kubernetes deployments.
-3. Guaranteeing identical QoS semantics across all backends.
+3. Guaranteeing identical QoS semantics across all backends or implementing any QoS for basic, single node backends.
 4. Solving all metering parity gaps in first release (graceful degradation is acceptable).
 
 ## 5. Current-State Analysis
@@ -188,6 +189,25 @@ These capabilities drive:
 - Controller behavior (enforce, no-op, or reject).
 - Studio UX (show, hide, disable, or relabel controls).
 
+Implement the following capabilities against LVM:
+ `supports_snapshots`: Can create point-in-time snapshots for managed volumes.
+- `supports_snapshot_restore`: Can restore/provision a volume from a snapshot.
+- `supports_volume_clone_cross_namespace`: Can clone/restore across Kubernetes namespaces.
+- `supports_volume_expansion`: Can increase PVC capacity.
+- `supports_usage_storage_metrics`: Can report observed used-bytes/storage usage metrics.
+- `supports_file_storage_volume`: Can provision/manage the optional Storage API volume.
+- `supports_dynamic_provisioning`: Can create volumes through StorageClass-driven dynamic provisioning.
+- `supports_delete_volume`: Supports safe backend-driven volume deletion.
+- `supports_resize_online`: Supports resizing while workload is active (no power-off required).
+- `supports_per_volume_capabilities`: Can report capabilities at per-volume granularity.
+- `supports_per_volume_usage`: Can report usage metrics at per-volume granularity.
+- `supports_storage_class_per_branch`: Supports per-branch StorageClass strategy.
+- `supports_storage_class_shared`: Supports one shared StorageClass across branches.
+- `supports_clone_without_snapshot`: Supports direct volume cloning without an explicit snapshot object.
+- `supports_fast_clone`: Supports backend-native fast clone semantics (typically COW/metadata clone).
+- `supports_restore_size_discovery`: Can discover/validate restore size requirements from snapshot metadata.
+
+
 ## 7. Proposed Controller Changes
 
 ## 7.1 New storage backend interface
@@ -196,10 +216,7 @@ Add a backend module (example path: `src/deployment/storage_backends/`) with:
 
 - `StorageBackend` protocol/base class.
 - `SimplyblockBackend`.
-- `ZfsBackend`.
 - `LvmBackend`.
-- `GenericCsiBackend` (minimal fallback).
-- factory from settings.
 
 Core model (grouped by responsibility):
 

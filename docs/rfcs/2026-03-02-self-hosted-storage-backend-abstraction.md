@@ -1,4 +1,4 @@
-# RFC: Storage Backend Abstraction for Self-Hosted Vela (Single-Host ZFS/LVM and Beyond)
+# RFC: Storage Backend Abstraction for Self-Hosted Vela (Single-Host LVM and Beyond)
 
 - Status: Draft
 - Target release: Phased (see rollout plan)

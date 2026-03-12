@@ -66,13 +66,13 @@ const ProjectBackupsPage: NextPageWithLayout = () => {
       toast.error((parsedProjectName as any).error || 'Invalid project name')
       return
     }
-
-    updateMutation.mutate({
-      orgRef: slug,
-      ref,
-      name: parsedProjectName.value,
-      max_backups: parsed.value as any,
-    })
+    if(parsedProjectName.value)
+      updateMutation.mutate({
+        orgRef: slug,
+        ref,
+        name: parsedProjectName.value,
+        max_backups: parsed.value as any,
+      })
   }
 
   const onCancel = () => {

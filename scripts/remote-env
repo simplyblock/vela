@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""
+Outputs dotenv vars for the remote studio compose to stdout.
+Configures the remote Keycloak frontend client as a side effect (stderr).
+
+Usage:
+  env $(scripts/remote-env 663 | xargs) podman compose -f docker/docker-compose.remote.yml up --build
+"""
+import argparse, json, secrets, subprocess, sys, urllib.parse, urllib.request
+
+
+def kc_request(url, token=None, method="GET", data=None):
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    with urllib.request.urlopen(req) as r:
+        raw = r.read()
+        return json.loads(raw) if raw else None
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("pr", help="PR number, e.g. 663")
+    parser.add_argument("--realm", default="vela")
+    parser.add_argument("--admin-user", default=None, help="Keycloak admin username (default: read from configmap)")
+    args = parser.parse_args()
+
+    host  = f"pr{args.pr}.dev.kernel-labs.org"
+    kc    = f"https://{host}/auth"
+    ns    = f"vela-pr{args.pr}"
+    realm = args.realm
+
+    print(f"Fetching admin credentials from {ns} ...", file=sys.stderr)
+    cm_data = json.loads(subprocess.check_output(
+        ["kubectl", "-n", ns, "get", "configmap", "vela-auth-config",
+         "-o", "jsonpath={.data}"],
+        text=True,
+    ))
+    admin_pw   = cm_data["KC_BOOTSTRAP_ADMIN_PASSWORD"].strip()
+    admin_user = args.admin_user or cm_data.get("KC_BOOTSTRAP_ADMIN_USERNAME", "admin").strip()
+
+    print("Obtaining Keycloak admin token ...", file=sys.stderr)
+    token_body = urllib.parse.urlencode({
+        "grant_type": "password",
+        "client_id": "admin-cli",
+        "username": admin_user,
+        "password": admin_pw,
+    }).encode()
+    req = urllib.request.Request(
+        f"{kc}/realms/master/protocol/openid-connect/token",
+        data=token_body, method="POST",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    with urllib.request.urlopen(req) as r:
+        token = json.loads(r.read())["access_token"]
+
+    clients = kc_request(f"{kc}/admin/realms/{realm}/clients?clientId=frontend", token)
+    client_uuid = clients[0]["id"]
+    client = kc_request(f"{kc}/admin/realms/{realm}/clients/{client_uuid}", token)
+
+    redirect_uri = "http://localhost:3000/*"
+    web_origin   = "http://localhost:3000"
+    if redirect_uri not in client.get("redirectUris", []):
+        client["redirectUris"] = sorted(set(client.get("redirectUris", []) + [redirect_uri]))
+        client["webOrigins"]   = sorted(set(client.get("webOrigins",   []) + [web_origin]))
+        kc_request(f"{kc}/admin/realms/{realm}/clients/{client_uuid}", token, "PUT", client)
+        print(f"Added {redirect_uri} to frontend client.", file=sys.stderr)
+    else:
+        print(f"{redirect_uri} already present, skipping.", file=sys.stderr)
+
+    client_secret = ""
+    try:
+        secret_data = kc_request(
+            f"{kc}/admin/realms/{realm}/clients/{client_uuid}/client-secret", token
+        )
+        client_secret = (secret_data or {}).get("value", "") or ""
+    except Exception:
+        pass
+
+    nextauth_secret = secrets.token_hex(32)
+
+    # stdout: dotenv consumed by --env-file=<(...)
+    print(f"VELA_REMOTE_HOST={host}")
+    print(f"KEYCLOAK_CLIENT_SECRET={client_secret}")
+    print(f"NEXTAUTH_SECRET={nextauth_secret}")
+
+
+if __name__ == "__main__":
+    main()

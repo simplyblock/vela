@@ -21,8 +21,11 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 
 const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
-  const headers = constructHeaders(req.headers)
-  const response = await fetchGet(getPgMetaRedirectUrl(req, 'extensions'), { headers })
+  const pgMeta = await getPgMetaRedirectUrl(req, res, 'extensions')
+  if (!pgMeta) return res.status(404).json({ error: { message: 'Branch not found' } })
+
+  const headers = { ...constructHeaders(req.headers), 'x-connection-encrypted': pgMeta.encryptedConnectionString }
+  const response = await fetchGet(pgMeta.url, { headers })
 
   if (response.error) {
     const { code, message } = response.error

@@ -20,11 +20,14 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 
 const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
+  const pgMeta = await getPgMetaRedirectUrl(req, res, 'query')
+  if (!pgMeta) return res.status(404).json({ error: { message: 'Branch not found' } })
+
   const { query } = req.body
-  const headers = constructHeaders(req.headers)
+  const headers = { ...constructHeaders(req.headers), 'x-connection-encrypted': pgMeta.encryptedConnectionString }
 
   try {
-    const response = await fetchPost(getPgMetaRedirectUrl(req, 'query'), { query }, { headers })
+    const response = await fetchPost(pgMeta.url, { query }, { headers })
 
     if (response.error) {
       const { code, message } = response.error

@@ -1,40 +1,58 @@
-import { NextApiRequest } from 'next'
+import { NextApiRequest, NextApiResponse } from 'next'
 import { getPlatformQueryParams } from './platformQueryParams'
 import { isDocker } from '../docker'
+import { getBranchOrRefresh } from './branchCaching'
+import { joinPath } from './apiHelpers'
 
 const isInDocker = isDocker()
 
-export function getPgMetaUrl(req: NextApiRequest) {
-  const { branch } = getPlatformQueryParams(req, 'branch')
+export interface PgMetaTarget {
+  url: string
+  encryptedConnectionString: string
+}
 
+export async function getPgMetaUrl(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<PgMetaTarget | undefined> {
   if (isInDocker) {
-    return process.env.PLATFORM_PG_META_URL
+    const url = process.env.PLATFORM_PG_META_URL
+    if (!url) return undefined
+    return { url, encryptedConnectionString: '' }
   }
-  return `http://vela-meta.vela-${branch.toLowerCase()}.svc.cluster.local:8080`
+  const { slug, ref, branch } = getPlatformQueryParams(req, 'slug', 'ref', 'branch')
+  const branchEntity = await getBranchOrRefresh(slug, ref, branch, req, res)
+  if (!branchEntity) return undefined
+  const url = joinPath(branchEntity.database.service_endpoint_uri, 'pg-meta')
+  console.log('[getPgMetaUrl] service_endpoint_uri:', branchEntity.database.service_endpoint_uri)
+  console.log('[getPgMetaUrl] pgMetaUrl:', url)
+  return { url, encryptedConnectionString: branchEntity.database.encrypted_connection_string }
 }
 
 /**
  * Construct the pgMeta redirection url passing along the filtering query params
  * @param req
+ * @param res
  * @param endpoint
  */
-export function getPgMetaRedirectUrl(req: NextApiRequest, endpoint: string) {
+export async function getPgMetaRedirectUrl(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  endpoint: string
+): Promise<PgMetaTarget | undefined> {
   const query = Object.entries(req.query).reduce((query, entry) => {
     const [key, value] = entry
     if (Array.isArray(value)) {
-      for (const v of value) {
-        query.append(key, v)
-      }
+      for (const v of value) query.append(key, v)
     } else if (value) {
       query.set(key, value)
     }
     return query
   }, new URLSearchParams())
 
-  const pgMetaEndpoint = getPgMetaUrl(req)
-  let url = `${pgMetaEndpoint}/${endpoint}`
-  if (Object.keys(req.query).length > 0) {
-    url += `?${query}`
-  }
-  return url
+  const pgMeta = await getPgMetaUrl(req, res)
+  if (!pgMeta) return undefined
+  let url = `${pgMeta.url}/${endpoint}`
+  if (query.toString()) url += `?${query}`
+  return { ...pgMeta, url }
 }

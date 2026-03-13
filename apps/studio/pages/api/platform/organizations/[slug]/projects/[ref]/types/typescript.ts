@@ -39,10 +39,13 @@ const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
     '_realtime',
   ].join(',')
 
-  const headers = constructHeaders(req.headers)
+  const pgMeta = await getPgMetaUrl(req, res)
+  if (!pgMeta) return res.status(404).json({ error: { message: 'Branch not found' } })
+
+  const headers = { ...constructHeaders(req.headers), 'x-connection-encrypted': pgMeta.encryptedConnectionString }
 
   const response = await fetchGet(
-    `${getPgMetaUrl(req)}/generators/typescript?included_schema=${includedSchema}&excluded_schemas=${excludedSchema}`,
+    `${pgMeta.url}/generators/typescript?included_schema=${includedSchema}&excluded_schemas=${excludedSchema}`,
     { headers }
   )
 

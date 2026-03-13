@@ -1,0 +1,48 @@
+name: vela-studio-remote
+
+services:
+  studio:
+    container_name: vela-studio-remote
+    build:
+      context: ..
+      dockerfile: apps/studio/Dockerfile
+      target: dev
+    ports:
+      - '3000:3000'
+    command: ['pnpm', 'exec', 'turbo', 'run', 'dev', '--filter=studio', '--parallel', '--env-mode=loose']
+    restart: unless-stopped
+    volumes:
+      - '../apps:/app/apps'
+      - '../packages:/app/packages'
+      - 'nextjs-compiler-cache:/app/apps/studio/.next/dev/cache'
+    environment:
+      VELA_PLATFORM_DEV_MODE: 'true'
+
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: 'http://localhost:3000'
+
+      # Server-side Keycloak (Next.js API routes call these)
+      VELA_PLATFORM_KEYCLOAK_ISSUER: 'https://${VELA_REMOTE_HOST}/auth/realms/vela'
+      VELA_PLATFORM_KEYCLOAK_CLIENT_ID: frontend
+      VELA_PLATFORM_KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      VELA_PLATFORM_KEYCLOAK_AUTHORIZATION_ENDPOINT: 'https://${VELA_REMOTE_HOST}/auth/realms/vela/protocol/openid-connect/auth'
+      VELA_PLATFORM_KEYCLOAK_TOKEN_ENDPOINT: 'https://${VELA_REMOTE_HOST}/auth/realms/vela/protocol/openid-connect/token'
+      VELA_PLATFORM_KEYCLOAK_USERINFO_ENDPOINT: 'https://${VELA_REMOTE_HOST}/auth/realms/vela/protocol/openid-connect/userinfo'
+      VELA_PLATFORM_KEYCLOAK_LOGOUT_ENDPOINT: 'https://${VELA_REMOTE_HOST}/auth/realms/vela/protocol/openid-connect/logout'
+      VELA_PLATFORM_KEYCLOAK_JWKS_ENDPOINT: 'https://${VELA_REMOTE_HOST}/auth/realms/vela/protocol/openid-connect/certs'
+      VELA_PLATFORM_GOTRUE_URL: 'https://${VELA_REMOTE_HOST}/auth'
+
+      # Client-side Keycloak vars (resolved at runtime in next dev mode)
+      NEXT_PUBLIC_VELA_PLATFORM_EXT_KEYCLOAK_URL: 'https://${VELA_REMOTE_HOST}/auth'
+      NEXT_PUBLIC_VELA_PLATFORM_KEYCLOAK_URL: 'https://${VELA_REMOTE_HOST}/auth'
+      NEXT_PUBLIC_VELA_PLATFORM_KEYCLOAK_REALM: vela
+      NEXT_PUBLIC_VELA_PLATFORM_KEYCLOAK_CLIENT_ID: frontend
+
+      # Remote platform / controller
+      VELA_PLATFORM_EXT_SIGN_IN_URL: 'https://${VELA_REMOTE_HOST}/sign-in'
+      VELA_PLATFORM_EXT_BASE_URL: 'https://${VELA_REMOTE_HOST}'
+      VELA_PLATFORM_EXT_API_SERVICE_URL: 'https://${VELA_REMOTE_HOST}/api'
+      VELA_PLATFORM_URL: 'https://${VELA_REMOTE_HOST}/vela'
+
+volumes:
+  nextjs-compiler-cache:

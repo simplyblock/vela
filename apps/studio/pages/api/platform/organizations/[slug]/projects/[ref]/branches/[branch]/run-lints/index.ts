@@ -26,10 +26,12 @@ type ResponseData =
 const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>) => {
   const headers = constructHeaders(req.headers)
   try {
+    const pgMeta = await getPgMetaRedirectUrl(req, res, 'query')
+    if (!pgMeta) return res.status(404).json({ error: { message: 'Branch not found' } } as any)
     const response = await fetchPost(
-      getPgMetaRedirectUrl(req, 'query'),
+      pgMeta.url,
       { query: enrichQuery(LINT_SQL) },
-      { headers }
+      { headers: { ...headers, 'x-connection-encrypted': pgMeta.encryptedConnectionString } }
     )
     if (response.error) {
       return res.status(400).json(response.error.message)

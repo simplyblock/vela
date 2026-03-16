@@ -6,7 +6,7 @@ import { getVelaClient } from 'data/vela/vela'
 const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   const { slug } = getPlatformQueryParams(req, 'slug')
   const client = getVelaClient(req)
-  return client.proxyGet(res, '/resources/organizations/{organization_id}/provisioning/available', {
+  return client.proxyGet(res, '/organizations/{organization_id}/resources/available/', {
     params: {
       path: {
         organization_id: slug,

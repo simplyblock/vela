@@ -31,8 +31,7 @@ async function getProjectAvailableCreationResources(
   return data as ProjectAvailableCreationResourcesData
 }
 
-//Ebrahim: FIXME: platform OpenAPI currently types this endpoint incorrectly.
-export type ProjectAvailableCreationResourcesData = VelaComponents['schemas']['ResourceLimitsPublic']
+export type ProjectAvailableCreationResourcesData = VelaComponents['schemas']['Resources']
 export type ProjectAvailableCreationResourcesError = ResponseError
 
 export const useProjectAvailableCreationResourcesQuery = <TData = ProjectAvailableCreationResourcesData>(

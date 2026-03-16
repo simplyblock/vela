@@ -57,7 +57,7 @@ export const BranchResourceBadge = ({
       const usedRaw = (usedData as any)?.[k] ?? null
 
 
-      if (maxRaw == null && usedRaw == null) continue
+      if ((maxRaw == null || maxRaw === 0) && usedRaw == null) continue
 
       const hasMax = typeof maxRaw === 'number' && isFinite(maxRaw) && maxRaw > 0
       const used = typeof usedRaw === 'number' && isFinite(usedRaw) ? (usedRaw as number) : 0

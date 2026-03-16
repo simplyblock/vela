@@ -115,7 +115,7 @@ export const BranchResizeModal: React.FC<Props> = ({
   }, [specs])
 
   const hasStorage =
-    !!sliderSpecs.storage_size && branchMax.storage_bytes !== null && branchMax.storage_bytes !== undefined
+    !!sliderSpecs.storage_size && (branchMax.storage_bytes ?? 0) > 0
 
   // helper: convert API value (branchMax) -> display value using spec.divider
   const apiToDisplay = (rk: ResourceType, apiVal?: number | null) => {

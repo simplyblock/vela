@@ -4,7 +4,10 @@ Outputs dotenv vars for the remote studio compose to stdout.
 Configures the remote Keycloak frontend client as a side effect (stderr).
 
 Usage:
+  # PR deployment:
   env $(scripts/remote-env 663 | xargs) podman compose -f docker/docker-compose.remote.yml up --build
+  # Global dev deployment:
+  env $(scripts/remote-env | xargs) podman compose -f docker/docker-compose.remote.yml up --build
 """
 import argparse, json, secrets, subprocess, sys, urllib.parse, urllib.request
 
@@ -22,14 +25,18 @@ def kc_request(url, token=None, method="GET", data=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("pr", help="PR number, e.g. 663")
+    parser.add_argument("pr", nargs="?", help="PR number, e.g. 663 (omit for global dev deployment)")
     parser.add_argument("--realm", default="vela")
     parser.add_argument("--admin-user", default=None, help="Keycloak admin username (default: read from configmap)")
     args = parser.parse_args()
 
-    host  = f"pr{args.pr}.dev.kernel-labs.org"
+    if args.pr:
+        host = f"pr{args.pr}.dev.kernel-labs.org"
+        ns   = f"vela-pr{args.pr}"
+    else:
+        host = "dev.kernel-labs.org"
+        ns   = "vela"
     kc    = f"https://{host}/auth"
-    ns    = f"vela-pr{args.pr}"
     realm = args.realm
 
     print(f"Fetching admin credentials from {ns} ...", file=sys.stderr)

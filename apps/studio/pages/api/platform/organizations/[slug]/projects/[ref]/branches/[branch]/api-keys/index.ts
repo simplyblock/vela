@@ -8,7 +8,7 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   const client = getVelaClient(req)
   return client.proxyGet(
     res,
-    '/organizations/{organization_id}/projects/{project_id}/branches/{branch_id}/apikeys',
+    '/organizations/{organization_id}/projects/{project_id}/branches/{branch_id}/apikeys/',
     {
       params: {
         path: {
@@ -27,7 +27,7 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
   const client = getVelaClient(req)
   return client.proxyPost(
     res,
-    '/organizations/{organization_id}/projects/{project_id}/branches/{branch_id}/apikeys',
+    '/organizations/{organization_id}/projects/{project_id}/branches/{branch_id}/apikeys/',
     {
       params: {
         path: {

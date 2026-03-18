@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
-import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
 import { useOrganizationAllocationsQuery } from 'data/resource-limits/organization-allocations-query'
+import { useOrgAvailableCreationResourcesQuery } from 'data/resource-limits/org-available-creation-resources-query'
 import { cn } from 'ui'
 import { divideValue, formatResource } from '../Project/utils'
 
@@ -27,24 +27,28 @@ const RESOURCE_DEFS: Array<{
  * Reads organization-wide limits and allocations and renders usage bars.
  */
 export default function OrganizationResourcesPanel({ orgRef }: Props) {
-  const { data: limits, isLoading: loadingLimits } = useOrganizationLimitsQuery(
-    { orgRef },
-    { enabled: !!orgRef }
-  )
-
   const { data: allocations, isLoading: loadingAllocations } = useOrganizationAllocationsQuery(
     { orgRef },
     { enabled: !!orgRef }
   )
 
-  const loading = loadingLimits || loadingAllocations
+  const { data: available, isLoading: loadingAvailable } = useOrgAvailableCreationResourcesQuery(
+    { orgId: orgRef },
+    { enabled: !!orgRef }
+  )
+
+  const loading = loadingAllocations || loadingAvailable
 
   const rows = useMemo(() => {
-    if (!limits && !allocations) return []
+    if (!allocations && !available) return []
 
     return RESOURCE_DEFS.map((def) => {
-      const maxRaw = limits?.total?.[def.key] ?? null
-      const allocatedRaw = allocations?.[def.key] ?? null
+      const allocatedRaw =
+        typeof allocations?.[def.key] === 'number' ? (allocations[def.key] as number) : null
+      const availableRaw =
+        typeof available?.[def.key] === 'number' ? (available[def.key] as number) : null
+      // max = allocations + available gives the effective system-derived total
+      const maxRaw = allocatedRaw != null && availableRaw != null ? allocatedRaw + availableRaw : null
 
       const maxDisplayNumber = maxRaw == null ? null : divideValue(def.key, maxRaw)
       const allocatedDisplayNumber = divideValue(def.key, allocatedRaw) ?? 0
@@ -65,7 +69,7 @@ export default function OrganizationResourcesPanel({ orgRef }: Props) {
         colorClass: def.colorClass,
       }
     }).filter((row) => (row.allocatedRaw !== null || row.maxRaw !== null) && row.maxRaw !== 0)
-  }, [limits, allocations])
+  }, [allocations, available])
 
   const mostAllocated =
     rows

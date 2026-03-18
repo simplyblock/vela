@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
-import { useProjectLimitsQuery } from 'data/resource-limits/project-limits-query'
 import { useProjectAllocationsQuery } from 'data/resource-limits/project-allocations-query'
+import { useProjectAvailableCreationResourcesQuery } from 'data/resource-limits/project-available-creation-resources-query'
 import { cn } from 'ui'
 import { divideValue, formatResource } from './utils'
 
@@ -27,24 +27,28 @@ const RESOURCE_DEFS: Array<{
  * Panel that shows project-wide allocations.
  */
 export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
-  const { data: limits, isLoading: loadingLimits } = useProjectLimitsQuery(
-    { orgRef, projectRef },
-    { enabled: !!orgRef && !!projectRef }
-  )
-
   const { data: allocations, isLoading: loadingAllocations } = useProjectAllocationsQuery(
     { orgRef, projectRef },
     { enabled: !!orgRef && !!projectRef }
   )
 
-  const loading = loadingLimits || loadingAllocations
+  const { data: available, isLoading: loadingAvailable } = useProjectAvailableCreationResourcesQuery(
+    { orgId: orgRef, projectId: projectRef },
+    { enabled: !!orgRef && !!projectRef }
+  )
+
+  const loading = loadingAllocations || loadingAvailable
 
   const rows = useMemo(() => {
-    if (!limits && !allocations) return []
+    if (!allocations && !available) return []
 
     return RESOURCE_DEFS.map((def) => {
-      const maxRaw = limits?.total?.[def.key] ?? null
-      const allocatedRaw = allocations?.[def.key] ?? null
+      const allocatedRaw =
+        typeof allocations?.[def.key] === 'number' ? (allocations[def.key] as number) : null
+      const availableRaw =
+        typeof available?.[def.key] === 'number' ? (available[def.key] as number) : null
+      // max = allocations + available gives the effective system-derived total
+      const maxRaw = allocatedRaw != null && availableRaw != null ? allocatedRaw + availableRaw : null
 
       const maxDisplayNumber = maxRaw == null ? null : divideValue(def.key, maxRaw)
       const allocatedDisplayNumber = divideValue(def.key, allocatedRaw) ?? 0
@@ -65,7 +69,7 @@ export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
         colorClass: def.colorClass,
       }
     }).filter((row) => (row.allocatedRaw !== null || row.maxRaw !== null) && row.maxRaw !== 0)
-  }, [limits, allocations])
+  }, [allocations, available])
 
   const mostAllocated =
     rows

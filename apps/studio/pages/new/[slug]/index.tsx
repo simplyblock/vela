@@ -45,7 +45,9 @@ import { getPathReferences } from 'data/vela/path-references'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import WideWizardLayout from 'components/layouts/WideWizardLayout'
 import { components } from 'data/vela/vela-schema'
+import { useOrgAvailableCreationResourcesQuery } from 'data/resource-limits/org-available-creation-resources-query'
 import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
+import { put } from 'data/fetchers'
 import { calculateSliderDefault } from '../../../lib/slider-helpers'
 
 /* ------------------------------------------------------------------ */
@@ -227,10 +229,13 @@ const CreateProjectPage: NextPageWithLayout = () => {
 
   const { data: systemLimitDefinitions } = useResourceLimitDefinitionsQuery()
 
-  // Dynamic limit definitions
-  const { data: limitDefinitions } = useOrganizationLimitsQuery({
-    orgRef: slug,
+  // Dynamic limit definitions: use available resources (reflects system limits when no org override)
+  const { data: limitDefinitions } = useOrgAvailableCreationResourcesQuery({
+    orgId: slug,
   })
+
+  // Check whether the org has explicitly configured limits (to decide if we need to set them on submit)
+  const { data: orgLimits } = useOrganizationLimitsQuery({ orgRef: slug })
 
   // Build dynamic limitConfig from API
   const limitConfig: LimitMap | null = useMemo(() => {
@@ -244,7 +249,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
     map['vcpu'] = {
       label: LABELS['vcpu'],
       min: (vcpuDef?.min ?? 0) / vcpuDivider,
-      max: (limitDefinitions.total.milli_vcpu ?? 0) / vcpuDivider,
+      max: (limitDefinitions.milli_vcpu ?? 0) / vcpuDivider,
       step: (vcpuDef?.step ?? 100) / vcpuDivider,
       unit: 'vCPU',
       divider: vcpuDivider,
@@ -255,7 +260,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
     map['ram'] = {
       label: LABELS['ram'],
       min: (ramDef?.min ?? 0) / ramDivider,
-      max: (limitDefinitions.total.ram ?? 0) / ramDivider,
+      max: (limitDefinitions.ram ?? 0) / ramDivider,
       step: (ramDef?.step ?? 256 * 1024 * 1024) / ramDivider,
       unit: 'GiB',
       divider: ramDivider,
@@ -265,7 +270,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
     map['iops'] = {
       label: LABELS['iops'],
       min: iopsDef?.min ?? 0,
-      max: limitDefinitions.total.iops ?? 0,
+      max: limitDefinitions.iops ?? 0,
       step: iopsDef?.step ?? 100,
       unit: 'IOPS',
       divider: 1,
@@ -276,19 +281,19 @@ const CreateProjectPage: NextPageWithLayout = () => {
     map['nvme'] = {
       label: LABELS['nvme'],
       min: (nvmeDef?.min ?? 0) / nvmeDivider,
-      max: (limitDefinitions.total.database_size ?? 0) / nvmeDivider,
+      max: (limitDefinitions.database_size ?? 0) / nvmeDivider,
       step: (nvmeDef?.step ?? nvmeDivider) / nvmeDivider,
       unit: 'GB',
       divider: nvmeDivider,
     }
 
-    if ((limitDefinitions.total.storage_size ?? 0) > 0) {
+    if ((limitDefinitions.storage_size ?? 0) > 0) {
       const storageDef = systemLimitDefinitions.find(l => l.resource_type === 'storage_size')
       const storageDivider = 1_000_000_000 // 1 GB
       map['storage'] = {
         label: LABELS['storage'],
         min: (storageDef?.min ?? 0) / storageDivider,
-        max: (limitDefinitions.total.storage_size ?? 0) / storageDivider,
+        max: (limitDefinitions.storage_size ?? 0) / storageDivider,
         step: (storageDef?.step ?? storageDivider) / storageDivider,
         unit: 'GB',
         divider: storageDivider,
@@ -574,6 +579,42 @@ const CreateProjectPage: NextPageWithLayout = () => {
     if (!values.includeFileStorage && sliderKeys.includes('storage')) {
       per_branch_limits.storage_size = 0
       project_limits.storage_size = 0
+    }
+
+    // If org has no configured limits (all null), set them from available resources so the
+    // controller can validate project limits against an org ceiling.
+    const orgLimitsUnconfigured =
+      limitDefinitions != null &&
+      orgLimits?.total != null &&
+      Object.values(orgLimits.total).every((v) => v == null)
+    if (orgLimitsUnconfigured) {
+      const { error: limitsError } = await put(
+        '/platform/organizations/{slug}/resources/limits',
+        {
+          params: { path: { slug: currentOrg.id! } },
+          body: {
+            total: {
+              milli_vcpu: limitDefinitions.milli_vcpu ?? null,
+              ram: limitDefinitions.ram ?? null,
+              iops: limitDefinitions.iops ?? null,
+              database_size: limitDefinitions.database_size ?? null,
+              storage_size: limitDefinitions.storage_size ?? null,
+            },
+            // per_branch uses the per-branch slider values from the form
+            per_branch: {
+              milli_vcpu: per_branch_limits['milli_vcpu'] ?? null,
+              ram: per_branch_limits['ram'] ?? null,
+              iops: per_branch_limits['iops'] ?? null,
+              database_size: per_branch_limits['database_size'] ?? null,
+              storage_size: per_branch_limits['storage_size'] ?? null,
+            },
+          } as any,
+        }
+      )
+      if (limitsError) {
+        toast.error('Failed to configure organization limits. Please try again.')
+        return
+      }
     }
 
     const data: ProjectCreateVariables = {

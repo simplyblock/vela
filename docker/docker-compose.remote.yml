@@ -15,11 +15,24 @@ services:
       - '../apps:/app/apps'
       - '../packages:/app/packages'
       - 'nextjs-compiler-cache:/app/apps/studio/.next/dev/cache'
+      - 'root-node-modules:/app/node_modules'
+      - 'studio-node-modules:/app/apps/studio/node_modules'
+      - 'api-types-node-modules:/app/packages/api-types/node_modules'
+      - 'build-icons-node-modules:/app/packages/build-icons/node_modules'
+      - 'common-node-modules:/app/packages/common/node_modules'
+      - 'config-node-modules:/app/packages/config/node_modules'
+      - 'eslint-config-node-modules:/app/packages/eslint-config-supabase/node_modules'
+      - 'icons-node-modules:/app/packages/icons/node_modules'
+      - 'pg-meta-node-modules:/app/packages/pg-meta/node_modules'
+      - 'shared-data-node-modules:/app/packages/shared-data/node_modules'
+      - 'tsconfig-node-modules:/app/packages/tsconfig/node_modules'
+      - 'ui-node-modules:/app/packages/ui/node_modules'
+      - 'ui-patterns-node-modules:/app/packages/ui-patterns/node_modules'
     environment:
       VELA_PLATFORM_DEV_MODE: 'true'
 
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: 'http://localhost:3000'
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
 
       # Server-side Keycloak (Next.js API routes call these)
       VELA_PLATFORM_KEYCLOAK_ISSUER: 'https://${VELA_REMOTE_HOST}/auth/realms/vela'
@@ -46,3 +59,16 @@ services:
 
 volumes:
   nextjs-compiler-cache:
+  root-node-modules:
+  studio-node-modules:
+  api-types-node-modules:
+  build-icons-node-modules:
+  common-node-modules:
+  config-node-modules:
+  eslint-config-node-modules:
+  icons-node-modules:
+  pg-meta-node-modules:
+  shared-data-node-modules:
+  tsconfig-node-modules:
+  ui-node-modules:
+  ui-patterns-node-modules:

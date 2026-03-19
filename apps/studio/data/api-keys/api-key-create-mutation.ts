@@ -30,7 +30,7 @@ export async function createAPIKey(payload: APIKeyCreateVariables) {
       path: {
         slug: payload.branch.organization_id,
         ref: payload.branch.project_id,
-        branch_id: payload.branch.id
+        branch: payload.branch.id
       },
       query: {
         reveal: false,

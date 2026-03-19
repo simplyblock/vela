@@ -58,7 +58,7 @@ async function getAPIKeys({ branch, reveal }: APIKeysVariables, signal?: AbortSi
       path: {
         slug: branch.organization_id,
         ref: branch.project_id,
-        branch_id: branch.id
+        branch: branch.id
       },
       query: {
         reveal,

@@ -364,8 +364,8 @@ const ResourceLimit: NextPageWithLayout = () => {
 
     try {
       const limitsPayload: components['schemas']['Limits'] = {
-        total: {},
-        per_branch: {},
+        total: {} as any,
+        per_branch: {} as any,
       }
       for (const slider of SLIDERS) {
         const cfg = limitConfig[slider.key]

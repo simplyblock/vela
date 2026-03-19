@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'dev'
 
 # Cancel old builds on new commit for same workflow + branch/PR
 concurrency:

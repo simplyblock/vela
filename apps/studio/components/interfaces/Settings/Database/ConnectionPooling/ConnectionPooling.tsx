@@ -1,18 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Fragment, useEffect } from 'react'
-import { SubmitHandler, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import z from 'zod'
-
-import { useParams } from 'common'
+import { z } from 'zod'
 import AlertError from 'components/ui/AlertError'
 import { setValueAsNullableNumber } from 'components/ui/Forms/Form.constants'
 import { FormActions } from 'components/ui/Forms/FormActions'
-import { InlineLink } from 'components/ui/InlineLink'
 import Panel from 'components/ui/Panel'
-import { useMaxConnectionsQuery } from 'data/database/max-connections-query'
-import { usePgbouncerConfigQuery } from 'data/database/pgbouncer-config-query'
-import { usePgbouncerConfigurationUpdateMutation } from 'data/database/pgbouncer-config-update-mutation'
+import ShimmeringLoader from 'ui-patterns/ShimmeringLoader'
+import { FormItemLayout } from 'ui-patterns/form/FormItemLayout/FormItemLayout'
 import {
   Alert_Shadcn_,
   AlertDescription_Shadcn_,
@@ -23,241 +19,262 @@ import {
   Input_Shadcn_,
   Separator,
 } from 'ui'
-import { Admonition } from 'ui-patterns'
-import { FormItemLayout } from 'ui-patterns/form/FormItemLayout/FormItemLayout'
-import ShimmeringLoader from 'ui-patterns/ShimmeringLoader'
-import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
+// import { useMaxConnectionsQuery } from 'data/database/max-connections-query'
+import {
+  usePgbouncerConfigQuery,
+  PgbouncerConfigData,
+} from 'data/database/pgbouncer-config-query'
+import { usePgbouncerConfigurationUpdateMutation } from 'data/database/pgbouncer-config-update-mutation'
+// import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
+import { getPathReferences } from 'data/vela/path-references'
 
-const formId = 'pooling-configuration-form'
+/* ------------------------------------------------ */
+/* Local payload type (fix mutation typing issue)   */
+/* ------------------------------------------------ */
 
-const PoolingConfigurationFormSchema = z.object({
-  default_pool_size: z.number().nullable(),
-  max_client_conn: z.number().nullable(),
+type PgBouncerPayload = Omit<
+  PgbouncerConfigData,
+  'pgbouncer_enabled' | 'pool_mode'
+> & { ref: string; slug: string; branchId: string }
+
+/* ------------------------------------------------ */
+/* Schema                                           */
+/* ------------------------------------------------ */
+
+const fields : {
+    key: string;
+    label: string;
+    description: string;
+    docs?: string;
+}[] = [
+  {
+    key: 'default_pool_size',
+    label: 'Default Pool Size',
+    description: 'Number of server connections kept in each pool.',
+    docs: 'https://vela.run/docs/guides/database/connection-management#configuring-supavisors-pool-size"',
+  },
+  {
+    key: 'max_client_conn',
+    label: 'Max Client Connections',
+    description: 'Maximum number of client connections allowed.',
+  },
+  {
+    key: 'reserve_pool_size',
+    label: 'Reserve Pool Size',
+    description: 'Additional connections allowed when the pool is full.',
+  },
+  {
+    key: 'server_idle_timeout',
+    label: 'Server Idle Timeout',
+    description: 'Time in seconds before closing idle server connections.',
+  },
+  {
+    key: 'server_lifetime',
+    label: 'Server Lifetime',
+    description: 'Maximum lifetime of a server connection in seconds.',
+  },
+  {
+    key: 'query_wait_timeout',
+    label: 'Query Wait Timeout',
+    description: 'Maximum time a query can wait for a connection.',
+  },
+]
+
+
+const schema = z.object({
+  default_pool_size: z.number().int().min(1),
+  max_client_conn: z.number().int().min(0).nullable().optional(),
+  reserve_pool_size: z.number().int().min(0).nullable().optional(),
+  server_idle_timeout: z.number().int().min(0).nullable().optional(),
+  server_lifetime: z.number().int().min(0).nullable().optional(),
+  query_wait_timeout: z.number().int().min(0).nullable().optional(),
 })
 
-/**
- * [Joshen] PgBouncer configuration will be the main endpoint for GET and PATCH of pooling config
- */
-export const ConnectionPooling = () => {
-  const { slug, ref: projectRef, branch: branchId } = useParams()
-  const { data: branch } = useSelectedBranchQuery()
+type FormValues = z.infer<typeof schema>
 
-  const { can: canUpdateConnectionPoolingConfiguration } =
-    useCheckPermissions('branch:settings:admin')
+const formId = 'pgbouncer-configuration-form'
+
+/* ------------------------------------------------ */
+
+
+
+export const ConnectionPooling  = () => {
+
+  const { slug, ref, branch } = getPathReferences()
+  const { can: canUpdate } = useCheckPermissions('branch:settings:admin')
 
   const {
-    data: pgbouncerConfig,
-    error: pgbouncerConfigError,
-    isLoading: isLoadingPgbouncerConfig,
-    isError: isErrorPgbouncerConfig,
-    isSuccess: isSuccessPgbouncerConfig,
-  } = usePgbouncerConfigQuery({ orgRef: slug, projectRef, branchId })
-
-  const { data: maxConnData } = useMaxConnectionsQuery({
-    branch,
+    data,
+    error,
+    isLoading,
+    isError,
+    isSuccess,
+  } = usePgbouncerConfigQuery({
+    orgRef: slug,
+    projectRef: ref,
+    branchId: branch,
   })
+  //FIXME: do we need this? 
+  // const { data: maxConnData } = useMaxConnectionsQuery({
+  //   branch,
+  // })
 
-  const { mutate: updatePoolerConfig, isLoading: isUpdatingPoolerConfig } =
+  const { mutate: updateConfig, isPending: isUpdating } =
     usePgbouncerConfigurationUpdateMutation()
 
-  const defaultPoolSize = 15
-  const defaultMaxClientConn = 200
-
-  const form = useForm<z.infer<typeof PoolingConfigurationFormSchema>>({
-    resolver: zodResolver(PoolingConfigurationFormSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
-      default_pool_size: undefined,
+      default_pool_size: 20,
       max_client_conn: null,
+      reserve_pool_size: null,
+      server_idle_timeout: null,
+      server_lifetime: null,
+      query_wait_timeout: null,
     },
   })
-  const { default_pool_size } = form.watch()
-  const connectionPoolingUnavailable = pgbouncerConfig?.pool_mode === null
 
-  const onSubmit: SubmitHandler<z.infer<typeof PoolingConfigurationFormSchema>> = async (data) => {
-    const { default_pool_size, max_client_conn } = data
-
-    if (!slug) return console.error('Organization slug is required')
-    if (!projectRef) return console.error('Project ref is required')
-    if (!branchId) return console.error('Branch id is required')
-
-    updatePoolerConfig(
-      {
-        slug: slug,
-        ref: projectRef,
-        branchId,
-        default_pool_size: default_pool_size === null ? undefined : default_pool_size,
-        max_client_conn: max_client_conn === null ? undefined : max_client_conn,
-      },
-      {
-        onSuccess: (data) => {
-          toast.success(`Successfully updated pooler configuration`)
-          if (data) {
-            form.reset({
-              default_pool_size: data.default_pool_size,
-            })
-          }
-        },
-      }
-    )
-  }
 
   const resetForm = () => {
     form.reset({
-      default_pool_size: pgbouncerConfig?.default_pool_size ?? defaultPoolSize,
-      max_client_conn: pgbouncerConfig?.max_client_conn ?? defaultMaxClientConn,
+      default_pool_size: data?.default_pool_size ?? 20,
+      max_client_conn: data?.max_client_conn ?? null,
+      reserve_pool_size: data?.reserve_pool_size ?? null,
+      server_idle_timeout: data?.server_idle_timeout ?? null,
+      server_lifetime: data?.server_lifetime ?? null,
+      query_wait_timeout: data?.query_wait_timeout ?? null,
     })
   }
 
   useEffect(() => {
-    if (isSuccessPgbouncerConfig) resetForm()
-  }, [isSuccessPgbouncerConfig])
+    if (isSuccess) resetForm()
+  }, [isSuccess])
+
+  const onSubmit = (values: FormValues) => {
+    if (!slug || !ref || !branch) return
+    // FIXME: using a locally typed version because the current PgbouncerConfigurationUpdateVariables is not typed correctly ideally we would want to use that one 
+    const payload: PgBouncerPayload = {
+      slug: slug,
+      ref: ref,
+      branchId: branch,
+      ...values,
+    }
+
+    updateConfig(payload as any, {
+      onSuccess: () => {
+        toast.success('PgBouncer configuration updated')
+        resetForm()
+      },
+    })
+  }
+
+  const connectionPoolingUnavailable = data?.pool_mode === null
 
   return (
-    <section id="connection-pooler">
+    <section id="pgbouncer-config">
       <Panel
-        className="!mb-0"
-        title={
-          <div className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-x-2">
-              <p>Connection pooling configuration</p>
-            </div>
-          </div>
-        }
+        title="PgBouncer Configuration"
         footer={
           <FormActions
             form={formId}
-            isSubmitting={isUpdatingPoolerConfig}
+            isSubmitting={isUpdating}
             hasChanges={form.formState.isDirty}
-            handleReset={() => resetForm()}
+            handleReset={resetForm}
             helper={
-              !canUpdateConnectionPoolingConfiguration
-                ? 'You need additional permissions to update connection pooling settings'
+              !canUpdate
+                ? 'You need additional permissions to update pooling settings'
                 : undefined
             }
           />
         }
       >
         <Panel.Content>
-          {isLoadingPgbouncerConfig && (
+
+          {/* Loading */}
+
+          {isLoading && (
             <div className="flex flex-col gap-y-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Fragment key={`loader-${i}`}>
-                  <div className="grid gap-2 items-center md:grid md:grid-cols-12 md:gap-x-4 w-full">
-                    <ShimmeringLoader className="h-4 w-1/3 col-span-4" delayIndex={i} />
-                    <ShimmeringLoader className="h-8 w-full col-span-8" delayIndex={i} />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Fragment key={i}>
+                  <div className="grid md:grid-cols-12 gap-x-4">
+                    <ShimmeringLoader className="h-4 w-1/3 col-span-4" />
+                    <ShimmeringLoader className="h-8 w-full col-span-8" />
                   </div>
                   <Separator />
                 </Fragment>
               ))}
-
-              <ShimmeringLoader className="h-8 w-full" />
             </div>
           )}
-          {isErrorPgbouncerConfig && (
+
+          {/* Error */}
+
+          {isError && (
             <AlertError
-              error={pgbouncerConfigError}
-              subject="Failed to retrieve connection pooler configuration"
+              error={error}
+              subject="Failed to retrieve PgBouncer configuration"
             />
           )}
+
+          {/* Feature unavailable */}
+
           {connectionPoolingUnavailable && (
-            <Admonition
-              type="default"
-              title="Unable to retrieve pooling configuration"
-              description="Please start a new project to enable this feature"
-            />
+            <Alert_Shadcn_ variant="warning">
+              <AlertTitle_Shadcn_>
+                Connection pooling unavailable
+              </AlertTitle_Shadcn_>
+              <AlertDescription_Shadcn_>
+                Please Create a new branch to enable this feature.
+              </AlertDescription_Shadcn_>
+            </Alert_Shadcn_>
           )}
-          {isSuccessPgbouncerConfig && (
+
+          {/* Form */}
+
+          {isSuccess && (
             <Form_Shadcn_ {...form}>
               <form
                 id={formId}
-                className="flex flex-col gap-y-6 w-full"
                 onSubmit={form.handleSubmit(onSubmit)}
+                className="flex flex-col gap-y-6"
               >
-                <FormField_Shadcn_
-                  control={form.control}
-                  name="default_pool_size"
-                  render={({ field }) => (
-                    <FormItemLayout
-                      layout="horizontal"
-                      label="Pool Size"
-                      description={
-                        <p>
-                          The maximum number of connections made to the underlying Postgres cluster,
-                          per user+db combination. Pool size has a default of {defaultPoolSize}{' '}
-                          based on your compute size.
-                        </p>
-                      }
-                    >
-                      <FormControl_Shadcn_>
-                        <Input_Shadcn_
-                          {...field}
-                          type="number"
-                          className="w-full"
-                          value={field.value || ''}
-                          placeholder={defaultPoolSize.toString()}
-                          {...form.register('default_pool_size', {
-                            setValueAs: setValueAsNullableNumber,
-                          })}
-                        />
-                      </FormControl_Shadcn_>
-                      {!!maxConnData &&
-                        (default_pool_size ?? 15) > maxConnData.maxConnections * 0.8 && (
-                          <Alert_Shadcn_ variant="warning" className="mt-2">
-                            <AlertTitle_Shadcn_ className="text-foreground">
-                              Pool size is greater than 80% of the max connections (
-                              {maxConnData.maxConnections}) on your database
-                            </AlertTitle_Shadcn_>
-                            <AlertDescription_Shadcn_>
-                              This may result in instability and unreliability with your database
-                              connections.
-                            </AlertDescription_Shadcn_>
-                          </Alert_Shadcn_>
-                        )}
-                    </FormItemLayout>
-                  )}
-                />
+                {fields.map((field) => (
+                  <FormField_Shadcn_
+                    key={field.key}
+                    control={form.control}
+                    name={field.key as keyof FormValues}
+                    render={({ field: rhfField }) => (
+                      <FormItemLayout layout="horizontal" label={field.label}>
+                        <div className="flex flex-col gap-1 w-full">
+                          <FormControl_Shadcn_>
+                            <Input_Shadcn_
+                              {...rhfField}
+                              type="number"
+                              className="w-full"
+                              value={rhfField.value ?? ''}
+                              {...form.register(field.key as keyof FormValues, {
+                                setValueAs: setValueAsNullableNumber,
+                              })}
+                            />
+                          </FormControl_Shadcn_>
 
-                <FormField_Shadcn_
-                  control={form.control}
-                  name="max_client_conn"
-                  render={({ field }) => (
-                    <FormItemLayout
-                      layout="horizontal"
-                      label="Max Client Connections"
-                      description={
-                        <>
-                          <p>
-                            The maximum number of concurrent client connections allowed. This value
-                            is fixed at {defaultMaxClientConn} based on your compute size and cannot
-                            be changed.
-                          </p>
-                          <p className="mt-2">
-                            Please refer to our{' '}
-                            <InlineLink href="https://vela.run/docs/guides/database/connection-management#configuring-supavisors-pool-size">
-                              documentation
-                            </InlineLink>{' '}
-                            to find out more.
-                          </p>
-                        </>
-                      }
-                    >
-                      <FormControl_Shadcn_>
-                        <Input_Shadcn_
-                          {...field}
-                          type="number"
-                          className="w-full"
-                          value={pgbouncerConfig?.max_client_conn || ''}
-                          disabled={true}
-                          placeholder={defaultMaxClientConn.toString()}
-                          {...form.register('max_client_conn', {
-                            setValueAs: setValueAsNullableNumber,
-                          })}
-                        />
-                      </FormControl_Shadcn_>
-                    </FormItemLayout>
-                  )}
-                />
+                          {field.docs &&                          
+                          <p className="text-sm text-muted-foreground">
+                            {field.description}
+                            <a
+                              href={field.docs}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="underline"
+                            >
+                              Learn more
+                            </a>
+                          </p>}
+                        </div>
+                      </FormItemLayout>
+                    )}
+                  />
+                ))}
               </form>
             </Form_Shadcn_>
           )}

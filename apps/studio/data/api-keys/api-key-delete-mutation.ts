@@ -7,18 +7,22 @@ import { apiKeysKeys } from './keys'
 export type APIKeyDeleteVariables = {
   orgSlug?: string
   projectRef?: string
+  branchId?:string;
   id: string
 }
 
 export async function deleteAPIKey(payload: APIKeyDeleteVariables) {
   if (!payload.orgSlug) throw new Error('orgSlug is required')
   if (!payload.projectRef) throw new Error('projectRef is required')
+  if(!payload.branchId) throw new Error('branchId is required')
+  if(!payload.id) throw new Error('apikey id is required')
 
-  const { data, error } = await del('/platform/organizations/{slug}/projects/{ref}/api-keys/{id}', {
+  const { data, error } = await del('/platform/organizations/{slug}/projects/{ref}/branches/{branch}/api-keys/{id}', {
     params: {
       path: {
         slug: payload.orgSlug,
         ref: payload.projectRef,
+        branch: payload.branchId,
         id: payload.id,
       },
       query: { reveal: false },

@@ -1,9 +1,6 @@
 import React, { useMemo } from 'react'
-import { useProjectLimitsQuery, type ProjectLimitsData } from 'data/resource-limits/project-limits-query'
-import {
-  useProjectAvailableCreationResourcesQuery,
-  type ProjectAvailableCreationResourcesData,
-} from 'data/resource-limits/project-available-creation-resources-query'
+import { useProjectAllocationsQuery } from 'data/resource-limits/project-allocations-query'
+import { useProjectAvailableCreationResourcesQuery } from 'data/resource-limits/project-available-creation-resources-query'
 import { cn } from 'ui'
 import { divideValue, formatResource } from './utils'
 
@@ -12,9 +9,7 @@ type Props = {
   projectRef?: string
 }
 
-type ProjectLimitItem = NonNullable<ProjectLimitsData>[number]
-type ProjectAllocationKey = keyof ProjectAvailableCreationResourcesData &
-  ('milli_vcpu' | 'ram' | 'iops' | 'storage_size' | 'database_size')
+type ProjectAllocationKey = 'milli_vcpu' | 'ram' | 'iops' | 'storage_size' | 'database_size'
 
 const RESOURCE_DEFS: Array<{
   key: ProjectAllocationKey
@@ -30,10 +25,9 @@ const RESOURCE_DEFS: Array<{
 
 /**
  * Panel that shows project-wide allocations.
- * Allocation is computed as: max_total - available.
  */
 export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
-  const { data: limits, isLoading: loadingLimits } = useProjectLimitsQuery(
+  const { data: allocations, isLoading: loadingAllocations } = useProjectAllocationsQuery(
     { orgRef, projectRef },
     { enabled: !!orgRef && !!projectRef }
   )
@@ -43,22 +37,18 @@ export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
     { enabled: !!orgRef && !!projectRef }
   )
 
-  const loading = loadingLimits || loadingAvailable
+  const loading = loadingAllocations || loadingAvailable
 
   const rows = useMemo(() => {
-    if (!limits && !available) return []
+    if (!allocations && !available) return []
 
     return RESOURCE_DEFS.map((def) => {
-      const limitEntry = Array.isArray(limits)
-        ? limits.find((limit: ProjectLimitItem) => limit.resource === def.key)
-        : undefined
-      if (!limitEntry) return null
-      const maxRaw = typeof limitEntry?.max_total === 'number' ? limitEntry.max_total : null
-
-      const availableValue = available?.[def.key]
-      const availableRaw = typeof availableValue === 'number' ? availableValue : 0
-
-      const allocatedRaw = maxRaw == null ? null : Math.max(0, maxRaw - availableRaw)
+      const allocatedRaw =
+        typeof allocations?.[def.key] === 'number' ? (allocations[def.key] as number) : null
+      const availableRaw =
+        typeof available?.[def.key] === 'number' ? (available[def.key] as number) : null
+      // max = allocations + available gives the effective system-derived total
+      const maxRaw = allocatedRaw != null && availableRaw != null ? allocatedRaw + availableRaw : null
 
       const maxDisplayNumber = maxRaw == null ? null : divideValue(def.key, maxRaw)
       const allocatedDisplayNumber = divideValue(def.key, allocatedRaw) ?? 0
@@ -78,8 +68,8 @@ export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
         pct,
         colorClass: def.colorClass,
       }
-    }).filter((row): row is NonNullable<typeof row> => row !== null && (row.allocatedRaw !== null || row.maxRaw !== null))
-  }, [limits, available])
+    }).filter((row) => (row.allocatedRaw !== null || row.maxRaw !== null) && row.maxRaw !== 0)
+  }, [allocations, available])
 
   const mostAllocated =
     rows
@@ -92,7 +82,7 @@ export default function ProjectResourcesPanel({ orgRef, projectRef }: Props) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-medium text-foreground">Project resource allocation</h3>
-          <p className="text-xs text-foreground-muted">Allocation across the project (limits - available)</p>
+          <p className="text-xs text-foreground-muted">Currently allocated resources across the project</p>
         </div>
 
         <div className="flex items-center gap-4">

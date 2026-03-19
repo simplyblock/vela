@@ -1,14 +1,13 @@
 import React, { useMemo } from 'react'
 import { Tooltip, TooltipTrigger, TooltipContent, cn } from 'ui'
-import { useProjectLimitsQuery, type ProjectLimitsData } from 'data/resource-limits/project-limits-query'
+import { useProjectAllocationsQuery } from 'data/resource-limits/project-allocations-query'
 import {
   useProjectAvailableCreationResourcesQuery,
   type ProjectAvailableCreationResourcesData,
 } from 'data/resource-limits/project-available-creation-resources-query'
 import { divideValue, formatResource } from './utils'
 
-type ProjectLimitItem = NonNullable<ProjectLimitsData>[number]
-type ProjectAllocationKey = keyof ProjectAvailableCreationResourcesData 
+type ProjectAllocationKey = keyof ProjectAvailableCreationResourcesData
 const RESOURCE_DEFS: Array<{
   key: ProjectAllocationKey
   label: string
@@ -22,7 +21,7 @@ const RESOURCE_DEFS: Array<{
 
 /**
  * Shows project resource allocation.
- * Allocation is computed as: max_total - available.
+ * Max is computed as: allocations + available.
  */
 export const ProjectResourcesBadge = ({
   orgRef,
@@ -33,7 +32,7 @@ export const ProjectResourcesBadge = ({
   projectRef?: string
   size?: number
 }) => {
-  const limitsQuery = useProjectLimitsQuery(
+  const allocationsQuery = useProjectAllocationsQuery(
     { orgRef: orgRef!, projectRef: projectRef! },
     { enabled: !!orgRef && !!projectRef }
   )
@@ -47,22 +46,20 @@ export const ProjectResourcesBadge = ({
   )
 
   const rows = useMemo(() => {
-    const limitsData = limitsQuery.data
+    const allocationsData = allocationsQuery.data
     const availableData = availableQuery.data
 
-    if (!limitsData && !availableData) return []
+    if (!allocationsData && !availableData) return []
 
     return RESOURCE_DEFS.map((def) => {
-      const limitEntry = Array.isArray(limitsData)
-        ? limitsData.find((limit: ProjectLimitItem) => limit.resource === def.key)
-        : undefined
-      if (!limitEntry) return null
-      const maxRaw = typeof limitEntry?.max_total === 'number' ? limitEntry.max_total : null
-
-      const availableValue = availableData?.[def.key]
-      const availableRaw = typeof availableValue === 'number' ? availableValue : 0
-
-      const allocatedRaw = maxRaw == null ? null : Math.max(0, maxRaw - availableRaw)
+      const allocatedRaw =
+        typeof (allocationsData as Record<string, unknown>)?.[def.key] === 'number'
+          ? ((allocationsData as Record<string, unknown>)[def.key] as number)
+          : null
+      const availableRaw =
+        typeof availableData?.[def.key] === 'number' ? (availableData[def.key] as number) : null
+      const maxRaw =
+        allocatedRaw != null && availableRaw != null ? allocatedRaw + availableRaw : null
 
       const maxDisplayNumber = maxRaw == null ? null : divideValue(def.key, maxRaw)
       const allocatedDisplayNumber = divideValue(def.key, allocatedRaw) ?? 0
@@ -78,10 +75,10 @@ export const ProjectResourcesBadge = ({
         percent,
         allocatedDisplay: formatResource(def.key, allocatedRaw),
         maxDisplay: maxRaw == null ? 'unlimited' : formatResource(def.key, maxRaw),
-        hasData: allocatedRaw !== null || maxRaw !== null,
+        hasData: (allocatedRaw !== null || maxRaw !== null) && maxRaw !== 0,
       }
-    }).filter((row): row is NonNullable<typeof row> => row !== null && row.hasData)
-  }, [limitsQuery.data, availableQuery.data])
+    }).filter((row): row is NonNullable<typeof row> => row.hasData)
+  }, [allocationsQuery.data, availableQuery.data])
 
   const mostAllocated = useMemo(() => {
     if (rows.length === 0) return null
@@ -113,7 +110,7 @@ export const ProjectResourcesBadge = ({
     }
   }
 
-  const loading = limitsQuery.isLoading || availableQuery.isLoading
+  const loading = allocationsQuery.isLoading || availableQuery.isLoading
   const empty = rows.length === 0 && !loading
 
   return (
@@ -157,7 +154,7 @@ export const ProjectResourcesBadge = ({
 
       <TooltipContent side="top" align="center" className="min-w-[240px] p-3">
         <div className="space-y-2">
-          <div className="text-xs text-foreground-muted">Project resource allocation (limits - available)</div>
+          <div className="text-xs text-foreground-muted">Project resource allocation</div>
 
           {loading ? (
             <div className="text-sm text-foreground-light">Loading allocation...</div>

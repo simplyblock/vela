@@ -53,12 +53,12 @@ type APIKey = LegacyKeys | SecretKeys | PublishableKeys
 
 async function getAPIKeys({ branch, reveal }: APIKeysVariables, signal?: AbortSignal) {
   if (!branch) throw new Error('branch is required')
-  // FIXME: Guess this also needs to move to a branch level
-  const { data, error } = await get(`/platform/organizations/{slug}/projects/{ref}/api-keys`, {
+  const { data, error } = await get(`/platform/organizations/{slug}/projects/{ref}/branches/{branch}/api-keys`, {
     params: {
       path: {
         slug: branch.organization_id,
         ref: branch.project_id,
+        branch: branch.id
       },
       query: {
         reveal,

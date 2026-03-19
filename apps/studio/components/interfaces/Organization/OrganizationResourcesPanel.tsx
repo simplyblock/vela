@@ -1,18 +1,14 @@
-﻿import React, { useMemo } from 'react'
-import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
+import React, { useMemo } from 'react'
+import { useOrganizationAllocationsQuery } from 'data/resource-limits/organization-allocations-query'
 import { useOrgAvailableCreationResourcesQuery } from 'data/resource-limits/org-available-creation-resources-query'
 import { cn } from 'ui'
 import { divideValue, formatResource } from '../Project/utils'
-import type { OrganizationLimitsData } from 'data/resource-limits/organization-limits-query'
-import type { OrgAvailableCreationResourcesData } from 'data/resource-limits/org-available-creation-resources-query'
 
 type Props = {
   orgRef?: string
 }
 
-type OrgLimitItem = NonNullable<OrganizationLimitsData>[number]
-type OrgAllocationKey = keyof OrgAvailableCreationResourcesData &
-  ('milli_vcpu' | 'ram' | 'iops' | 'storage_size' | 'database_size')
+type OrgAllocationKey = 'milli_vcpu' | 'ram' | 'iops' | 'storage_size' | 'database_size'
 
 const RESOURCE_DEFS: Array<{
   key: OrgAllocationKey
@@ -28,11 +24,10 @@ const RESOURCE_DEFS: Array<{
 
 /**
  * OrganizationResourcesPanel
- * Reads organization-wide limits and available resources and renders allocations.
- * Allocation is computed as: max_total - available.
+ * Reads organization-wide limits and allocations and renders usage bars.
  */
 export default function OrganizationResourcesPanel({ orgRef }: Props) {
-  const { data: limits, isLoading: loadingLimits } = useOrganizationLimitsQuery(
+  const { data: allocations, isLoading: loadingAllocations } = useOrganizationAllocationsQuery(
     { orgRef },
     { enabled: !!orgRef }
   )
@@ -42,21 +37,18 @@ export default function OrganizationResourcesPanel({ orgRef }: Props) {
     { enabled: !!orgRef }
   )
 
-  const loading = loadingLimits || loadingAvailable
+  const loading = loadingAllocations || loadingAvailable
 
   const rows = useMemo(() => {
-    if (!limits && !available) return []
+    if (!allocations && !available) return []
 
     return RESOURCE_DEFS.map((def) => {
-      const limitEntry = Array.isArray(limits)
-        ? limits.find((limit: OrgLimitItem) => limit.resource === def.key)
-        : undefined
-      const maxRaw = typeof limitEntry?.max_total === 'number' ? limitEntry.max_total : null
-
-      const availableValue = available?.[def.key]
-      const availableRaw = typeof availableValue === 'number' ? availableValue : 0
-
-      const allocatedRaw = maxRaw == null ? null : Math.max(0, maxRaw - availableRaw)
+      const allocatedRaw =
+        typeof allocations?.[def.key] === 'number' ? (allocations[def.key] as number) : null
+      const availableRaw =
+        typeof available?.[def.key] === 'number' ? (available[def.key] as number) : null
+      // max = allocations + available gives the effective system-derived total
+      const maxRaw = allocatedRaw != null && availableRaw != null ? allocatedRaw + availableRaw : null
 
       const maxDisplayNumber = maxRaw == null ? null : divideValue(def.key, maxRaw)
       const allocatedDisplayNumber = divideValue(def.key, allocatedRaw) ?? 0
@@ -76,8 +68,8 @@ export default function OrganizationResourcesPanel({ orgRef }: Props) {
         pct,
         colorClass: def.colorClass,
       }
-    }).filter((row) => row.allocatedRaw !== null || row.maxRaw !== null)
-  }, [limits, available])
+    }).filter((row) => (row.allocatedRaw !== null || row.maxRaw !== null) && row.maxRaw !== 0)
+  }, [allocations, available])
 
   const mostAllocated =
     rows
@@ -90,7 +82,7 @@ export default function OrganizationResourcesPanel({ orgRef }: Props) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-medium text-foreground">Organization resource allocation</h3>
-          <p className="text-xs text-foreground-muted">Allocation across the organization (limits - available)</p>
+          <p className="text-xs text-foreground-muted">Currently allocated resources across the organization</p>
         </div>
 
         <div className="flex items-center gap-4">

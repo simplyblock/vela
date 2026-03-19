@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { components } from 'data/vela/vela-schema'
 import { useController, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 import DefaultLayout from 'components/layouts/DefaultLayout'
@@ -206,10 +207,10 @@ const ResourceLimit: NextPageWithLayout = () => {
       const cfg = limitConfig[slider.key]
       if (!cfg) return
 
-      const def = definitions.find((d) => d.resource === slider.resourceType)
-      if (!def || def.max_total == null) return
+      const maxRaw = definitions?.total?.[slider.resourceType]
+      if (maxRaw == null) return
 
-      base[slider.key] = def.max_total / cfg.divider
+      base[slider.key] = Math.round((maxRaw / cfg.divider) * 100) / 100
     })
 
     return base
@@ -224,7 +225,7 @@ const ResourceLimit: NextPageWithLayout = () => {
       const cfg = limitConfig[slider.key]
       const raw = (usageData as any)?.[slider.resourceType]
       if (raw != null && cfg) {
-        base[slider.key] = raw / cfg.divider
+        base[slider.key] = Math.round((raw / cfg.divider) * 100) / 100
       }
     })
 
@@ -250,14 +251,12 @@ const ResourceLimit: NextPageWithLayout = () => {
       nvme: 0,
     }
 
-    for (const lim of limitsData) {
-      const slider = SLIDERS.find((s) => s.resourceType === lim.resource)
-      if (!slider) continue
+    for (const slider of SLIDERS) {
       const key = slider.key
       const cfg = limitConfig[key]
       const div = cfg.divider || 1
-      perBranch[key] = (lim.max_per_branch ?? 0) / div
-      project[key] = (lim.max_total ?? 0) / div
+      perBranch[key] = Math.round(((limitsData.per_branch?.[slider.resourceType] ?? 0) / div) * 100) / 100
+      project[key] = Math.round(((limitsData.total?.[slider.resourceType] ?? 0) / div) * 100) / 100
     }
 
     // Make sure we don't start below usage / min / per-branch, and not above system max
@@ -350,32 +349,32 @@ const ResourceLimit: NextPageWithLayout = () => {
       return
     }
 
-    try {
-      for (const k of changed) {
-        const cfg = limitConfig[k]
-        const divider = cfg.divider || 1
-        const usage = usageByKey[k] ?? 0
-        const slider = SLIDERS.find((s) => s.key === k)
-        if (!slider) continue
+    // Validate usage before building payload
+    for (const k of changed) {
+      const cfg = limitConfig[k]
+      const usage = usageByKey[k] ?? 0
+      const slider = SLIDERS.find((s) => s.key === k)
+      if (!slider) continue
 
-        const label = slider.label
-        const resourceType = slider.resourceType
-
-        if (values.perBranch[k] < usage || values.project[k] < usage) {
-          toast.error(`Cannot set ${label} below current usage (${usage} ${cfg.unit})`)
-          continue
-        }
-
-        await updateLimit({
-          orgRef,
-          projectRef,
-          limit: {
-            resource: resourceType,
-            max_per_branch: values.perBranch[k] * divider,
-            max_total: values.project[k] * divider,
-          },
-        })
+      if (values.perBranch[k] < usage || values.project[k] < usage) {
+        toast.error(`Cannot set ${slider.label} below current usage (${usage} ${cfg.unit})`)
+        return
       }
+    }
+
+    try {
+      const limitsPayload: components['schemas']['Limits'] = {
+        total: {} as any,
+        per_branch: {} as any,
+      }
+      for (const slider of SLIDERS) {
+        const cfg = limitConfig[slider.key]
+        const divider = cfg.divider || 1
+        ;(limitsPayload.total as any)[slider.resourceType] = values.project[slider.key] * divider
+        ;(limitsPayload.per_branch as any)[slider.resourceType] = values.perBranch[slider.key] * divider
+      }
+
+      await updateLimit({ orgRef, projectRef, limits: limitsPayload })
 
       toast.success('Limits updated')
       form.reset(values)

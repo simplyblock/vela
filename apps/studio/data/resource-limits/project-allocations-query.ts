@@ -38,7 +38,7 @@ async function getProjectAllocations(
   return data as ProjectAllocationsData
 }
 
-export type ProjectAllocationsData = VelaComponents['schemas']['ResourceLimitsPublic']
+export type ProjectAllocationsData = VelaComponents['schemas']['Resources']
 export type ProjectAllocationsError = ResponseError
 
 export const useProjectAllocationsQuery = <TData = ProjectAllocationsData>(

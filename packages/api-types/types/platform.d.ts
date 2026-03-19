@@ -48,11 +48,11 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get Organization Provisioning Limits */
-    get: operations['ResourceController_getOrganizationProvisioningLimit']
-    put?: never
-    /** Set Organization Provisioning Limit */
-    post: operations['ResourceController_setOrganizationProvisioningLimit']
+    /** Get Organization Resource Limits */
+    get: operations['ResourceController_getOrganizationLimits']
+    /** Update Organization Resource Limits */
+    put: operations['ResourceController_updateOrganizationLimits']
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -66,11 +66,11 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get Project Provisioning Limits */
-    get: operations['ResourceController_getProjectProvisioningLimit']
-    put?: never
-    /** Set Project Provisioning Limit */
-    post: operations['ResourceController_setProjectProvisioningLimit']
+    /** Get Project Resource Limits */
+    get: operations['ResourceController_getProjectLimits']
+    /** Update Project Resource Limits */
+    put: operations['ResourceController_updateProjectLimits']
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -84,8 +84,25 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get Organization Provisioning Available Resources */
-    get: operations['ResourceController_getOrganizationProvisioningAvailable']
+    /** Get Organization Available Resources */
+    get: operations['ResourceController_getOrganizationAvailable']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/platform/organizations/{slug}/resources/allocations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Organization Resource Allocations */
+    get: operations['ResourceController_getOrganizationAllocations']
     put?: never
     post?: never
     delete?: never
@@ -101,8 +118,76 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get Project Provisioning Available Resources */
-    get: operations['ResourceController_getProjectProvisioningAvailable']
+    /** Get Project Available Resources */
+    get: operations['ResourceController_getProjectAvailable']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/platform/organizations/{slug}/projects/{ref}/resources/allocations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Project Resource Allocations */
+    get: operations['ResourceController_getProjectAllocations']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/platform/resources/limits': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get System Resource Limits */
+    get: operations['ResourceController_getSystemLimits']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/platform/resources/allocations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get System Resource Allocations */
+    get: operations['ResourceController_getSystemAllocations']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/platform/resources/available': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get System Available Resources */
+    get: operations['ResourceController_getSystemAvailable']
     put?: never
     post?: never
     delete?: never
@@ -11117,7 +11202,7 @@ export interface operations {
       }
     }
   }
-  ResourceController_getOrganizationProvisioningLimit: {
+  ResourceController_getOrganizationLimits: {
     parameters: {
       query?: never
       header?: never
@@ -11134,7 +11219,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': VelaType<'ProvisioningLimitPublic'>[]
+          'application/json': VelaType<'Limits'>
         }
       }
       /** @description Validation Error */
@@ -11148,102 +11233,7 @@ export interface operations {
       }
     }
   }
-  ResourceController_getOrganizationProvisioningAvailable: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        slug: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': VelaType<'ProvisioningLimitPublic'>[]
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': VelaType<'HTTPValidationError'>
-        }
-      }
-    }
-  }
-  ResourceController_getProjectProvisioningLimit: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        slug: string
-        ref: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': VelaType<'ProvisioningLimitPublic'>[]
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': VelaType<'HTTPValidationError'>
-        }
-      }
-    }
-  }
-  ResourceController_getProjectProvisioningAvailable: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        slug: string
-        ref: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': VelaType<'ProvisioningLimitPublic'>[]
-        }
-      }
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': VelaType<'HTTPValidationError'>
-        }
-      }
-    }
-  }
-  ResourceController_setOrganizationProvisioningLimit: {
+  ResourceController_updateOrganizationLimits: {
     parameters: {
       query?: never
       header?: never
@@ -11254,9 +11244,38 @@ export interface operations {
     }
     requestBody: {
       content: {
-        'application/json': VelaType<'ProvLimitPayload'>
+        'application/json': VelaType<'Limits'>
       }
     }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getOrganizationAvailable: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
     responses: {
       /** @description Successful Response */
       200: {
@@ -11264,7 +11283,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': VelaType<'LimitResultPublic'>
+          'application/json': VelaType<'Resources'>
         }
       }
       /** @description Validation Error */
@@ -11278,7 +11297,70 @@ export interface operations {
       }
     }
   }
-  ResourceController_setProjectProvisioningLimit: {
+  ResourceController_getOrganizationAllocations: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'Resources'>
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getProjectLimits: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+        ref: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'Limits'>
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_updateProjectLimits: {
     parameters: {
       query?: never
       header?: never
@@ -11290,9 +11372,39 @@ export interface operations {
     }
     requestBody: {
       content: {
-        'application/json': VelaType<'ProvLimitPayload'>
+        'application/json': VelaType<'Limits'>
       }
     }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getProjectAvailable: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+        ref: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
     responses: {
       /** @description Successful Response */
       200: {
@@ -11300,7 +11412,126 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': VelaType<'LimitResultPublic'>
+          'application/json': VelaType<'Resources'>
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getProjectAllocations: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+        ref: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'Resources'>
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getSystemLimits: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'Limits'>
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getSystemAllocations: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'Resources'>
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'HTTPValidationError'>
+        }
+      }
+    }
+  }
+  ResourceController_getSystemAvailable: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': VelaType<'Resources'>
         }
       }
       /** @description Validation Error */

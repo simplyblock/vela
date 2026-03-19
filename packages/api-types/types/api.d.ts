@@ -368,7 +368,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/platform/organizations/{slug}/projects/{ref}/api-keys': {
+  '/platform/organizations/{slug}/projects/{ref}/branches/{branch}/api-keys': {
     parameters: {
       query?: never
       header?: never
@@ -386,7 +386,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/platform/organizations/{slug}/projects/{ref}/api-keys/{id}': {
+  '/platform/organizations/{slug}/projects/{ref}/branches/{branch}/api-keys/{api_key_id}': {
     parameters: {
       query?: never
       header?: never
@@ -4294,6 +4294,7 @@ export interface operations {
         /** @description Project ref */
         ref: string
         slug: string
+        branch_id: string
       }
       cookie?: never
     }
@@ -4326,6 +4327,7 @@ export interface operations {
         /** @description Project ref */
         ref: string
         slug: string
+        branch_id: string
       }
       cookie?: never
     }
@@ -4395,10 +4397,11 @@ export interface operations {
       }
       header?: never
       path: {
-        id: string
+        api_key_id: string
         /** @description Project ref */
         ref: string
         slug: string
+        branch:string
       }
       cookie?: never
     }

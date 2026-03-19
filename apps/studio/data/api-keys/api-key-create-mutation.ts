@@ -25,11 +25,12 @@ export type APIKeyCreateVariables = {
 export async function createAPIKey(payload: APIKeyCreateVariables) {
   if (!payload.branch) throw new Error('Branch is required')
 
-  const { data, error } = await post('/platform/organizations/{slug}/projects/{ref}/api-keys', {
+  const { data, error } = await post('/platform/organizations/{slug}/projects/{ref}/branches/{branch}/api-keys', {
     params: {
       path: {
         slug: payload.branch.organization_id,
         ref: payload.branch.project_id,
+        branch_id: payload.branch.id
       },
       query: {
         reveal: false,

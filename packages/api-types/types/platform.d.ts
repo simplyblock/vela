@@ -485,6 +485,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/platform/organizations/{slug}/projects/{ref}/branches/{branch}/auth/config/smtp/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['BranchAuthController_getSmtp']
+    put: operations['BranchAuthController_updateSmtp']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/platform/organizations/{slug}/projects/{ref}/branches/{branch}/auth/config/client': {
     parameters: {
       query?: never
@@ -5135,6 +5151,16 @@ export interface components {
     }
     BranchAuthMFAConfig: {
       status: 'enabled' | 'verify-enabled' | 'disabled'
+    }
+    BranchAuthSmtpConfig: {
+      host?: string | null
+      port?: string | null
+      user?: string | null
+      password?: string | null
+      from?: string | null
+      fromDisplayName?: string | null
+      maxFrequency?: number | null
+      encryption?: 'tls' | 'starttls' | null
     }
     BranchAuthClientResponse: {
       id?: string
@@ -10435,6 +10461,68 @@ export interface operations {
         }
         content: {
           'application/json': {}
+        }
+      }
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  BranchAuthController_getSmtp: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+        ref: string
+        branch: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': PlatformType<'BranchAuthSmtpConfig'>
+        }
+      }
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  BranchAuthController_updateSmtp: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+        ref: string
+        branch: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': PlatformType<'BranchAuthSmtpConfig'>
+      }
+    }
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': PlatformType<'BranchAuthSmtpConfig'>
         }
       }
       403: {

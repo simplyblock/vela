@@ -9,8 +9,8 @@ import * as yup from 'yup'
 import { useParams } from 'common'
 import { ScaffoldContainer, ScaffoldSection } from 'components/layouts/Scaffold'
 import NoPermission from 'components/ui/NoPermission'
-import { useAuthConfigQuery } from 'data/auth/auth-config-query'
-import { useAuthConfigUpdateMutation } from 'data/auth/auth-config-update-mutation'
+import { useAuthSmtpQuery } from 'data/auth/auth-smtp-query'
+import { useAuthSmtpUpdateMutation } from 'data/auth/auth-smtp-update-mutation'
 import {
   AlertDescription_Shadcn_,
   AlertTitle_Shadcn_,
@@ -24,12 +24,16 @@ import {
   Form_Shadcn_,
   Input_Shadcn_,
   PrePostTab,
+  Select_Shadcn_,
+  SelectContent_Shadcn_,
+  SelectItem_Shadcn_,
+  SelectTrigger_Shadcn_,
+  SelectValue_Shadcn_,
   Switch,
   WarningIcon,
 } from 'ui'
 import { FormItemLayout } from 'ui-patterns/form/FormItemLayout/FormItemLayout'
 import { urlRegex } from '../Auth.constants'
-import { defaultDisabledSmtpFormValues } from './SmtpForm.constants'
 import { generateFormValues, isSmtpEnabled } from './SmtpForm.utils'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
 
@@ -41,13 +45,18 @@ interface SmtpFormValues {
   SMTP_MAX_FREQUENCY?: number
   SMTP_USER?: string
   SMTP_PASS?: string
+  SMTP_ENCRYPTION?: 'tls' | 'starttls' | 'none'
   ENABLE_SMTP: boolean
 }
 
 const SmtpForm = () => {
   const { slug: orgRef, ref: projectRef, branch: branchRef } = useParams()
-  const { data: authConfig, error: authConfigError, isError } = useAuthConfigQuery({ projectRef })
-  const { mutate: updateAuthConfig, isLoading: isUpdatingConfig } = useAuthConfigUpdateMutation()
+  const {
+    data: authConfig,
+    error: authConfigError,
+    isError,
+  } = useAuthSmtpQuery({ orgId: orgRef, projectId: projectRef, branchId: branchRef })
+  const { mutate: updateAuthConfig, isLoading: isUpdatingConfig } = useAuthSmtpUpdateMutation()
 
   const [enableSmtp, setEnableSmtp] = useState(false)
   const [hidden, setHidden] = useState(true)
@@ -110,6 +119,7 @@ const SmtpForm = () => {
       SMTP_MAX_FREQUENCY: undefined,
       SMTP_USER: '',
       SMTP_PASS: '',
+      SMTP_ENCRYPTION: 'none',
       ENABLE_SMTP: false,
     },
   })
@@ -141,24 +151,36 @@ const SmtpForm = () => {
   }, [form])
 
   const onSubmit = (values: SmtpFormValues) => {
-    const { ENABLE_SMTP, ...rest } = values
-    const payload = ENABLE_SMTP ? rest : defaultDisabledSmtpFormValues
+    const { ENABLE_SMTP, SMTP_PASS, SMTP_PORT, SMTP_ENCRYPTION, ...rest } = values
 
-    // Format payload: Convert port to string
-    if (payload.SMTP_PORT) {
-      payload.SMTP_PORT = payload.SMTP_PORT.toString() as any
-    }
-
-    // the SMTP_PASS is write-only, it's never shown. If we don't delete it from the payload, it will replace the
-    // previously saved value with an empty one
-    if (payload.SMTP_PASS === '') {
-      delete payload.SMTP_PASS
-    }
+    const config = !ENABLE_SMTP
+      ? {
+          // Disable SMTP: send all nulls so the API clears smtpServer
+          host: null,
+          port: null,
+          user: null,
+          password: null,
+          from: null,
+          fromDisplayName: null,
+          maxFrequency: null,
+          encryption: null,
+        }
+      : {
+          host: rest.SMTP_HOST ?? null,
+          port: SMTP_PORT != null ? String(SMTP_PORT) : null,
+          user: rest.SMTP_USER ?? null,
+          // SMTP_PASS is write-only: skip if empty so we don't overwrite the saved value
+          ...(SMTP_PASS ? { password: SMTP_PASS } : {}),
+          from: rest.SMTP_ADMIN_EMAIL ?? null,
+          fromDisplayName: rest.SMTP_SENDER_NAME ?? null,
+          maxFrequency: rest.SMTP_MAX_FREQUENCY ?? null,
+          encryption: !SMTP_ENCRYPTION || SMTP_ENCRYPTION === 'none' ? null : SMTP_ENCRYPTION,
+        }
 
     updateAuthConfig(
-      { projectRef: projectRef!, config: payload as any },
+      { orgId: orgRef!, projectId: projectRef!, branchId: branchRef!, config: config as any },
       {
-        onError: (error) => {
+        onError: (error: any) => {
           toast.error(`Failed to update settings: ${error.message}`)
         },
         onSuccess: () => {
@@ -222,7 +244,14 @@ const SmtpForm = () => {
                   )}
                 />
 
-                {enableSmtp && !isSmtpEnabled(form.getValues() as any) && (
+                {enableSmtp &&
+                  !(
+                    form.watch('SMTP_ADMIN_EMAIL') &&
+                    form.watch('SMTP_SENDER_NAME') &&
+                    form.watch('SMTP_USER') &&
+                    form.watch('SMTP_HOST') &&
+                    form.watch('SMTP_PORT')
+                  ) && (
                   <div className="mt-4">
                     <Alert_Shadcn_ variant="warning">
                       <AlertTriangle strokeWidth={2} />
@@ -365,6 +394,34 @@ const SmtpForm = () => {
 
                         <FormField_Shadcn_
                           control={form.control}
+                          name="SMTP_ENCRYPTION"
+                          render={({ field }) => (
+                            <FormItemLayout
+                              label="Encryption"
+                              description="Encryption method used by your SMTP server."
+                            >
+                              <FormControl_Shadcn_>
+                                <Select_Shadcn_
+                                  value={field.value ?? 'none'}
+                                  onValueChange={field.onChange}
+                                  disabled={!canUpdateConfig}
+                                >
+                                  <SelectTrigger_Shadcn_>
+                                    <SelectValue_Shadcn_ />
+                                  </SelectTrigger_Shadcn_>
+                                  <SelectContent_Shadcn_>
+                                    <SelectItem_Shadcn_ value="none">None</SelectItem_Shadcn_>
+                                    <SelectItem_Shadcn_ value="tls">TLS</SelectItem_Shadcn_>
+                                    <SelectItem_Shadcn_ value="starttls">StartTLS</SelectItem_Shadcn_>
+                                  </SelectContent_Shadcn_>
+                                </Select_Shadcn_>
+                              </FormControl_Shadcn_>
+                            </FormItemLayout>
+                          )}
+                        />
+
+                        <FormField_Shadcn_
+                          control={form.control}
                           name="SMTP_MAX_FREQUENCY"
                           render={({ field }) => (
                             <FormItemLayout
@@ -427,7 +484,7 @@ const SmtpForm = () => {
                                     {...field}
                                     type={hidden ? 'password' : 'text'}
                                     placeholder={
-                                      authConfig?.SMTP_PASS === null ? 'SMTP Password' : '••••••••'
+                                      authConfig?.password === null ? 'SMTP Password' : '••••••••'
                                     }
                                     disabled={!canUpdateConfig}
                                   />

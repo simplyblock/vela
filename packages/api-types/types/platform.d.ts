@@ -145,6 +145,12 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/platform/organizations/{slug}/projects/{ref}/resources/branch-maxima': {
+    parameters: { query?: never; header?: never; path?: never; cookie?: never }
+    /** Get Project Branch Maxima */
+    get: operations['ResourceController_getProjectBranchMaxima']
+    put?: never; post?: never; delete?: never; options?: never; head?: never; patch?: never; trace?: never
+  }
   '/platform/resources/limits': {
     parameters: {
       query?: never
@@ -11828,6 +11834,21 @@ export interface operations {
           'application/json': VelaType<'HTTPValidationError'>
         }
       }
+    }
+  }
+  ResourceController_getProjectBranchMaxima: {
+    parameters: {
+      query?: never
+      header?: never
+      path: { slug: string; ref: string }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      200: { headers: { [name: string]: unknown }; content: { 'application/json': VelaType<'Resources'> } }
+      401: { headers: { [name: string]: unknown }; content: { 'application/json': unknown } }
+      403: { headers: { [name: string]: unknown }; content: { 'application/json': unknown } }
+      404: { headers: { [name: string]: unknown }; content: { 'application/json': unknown } }
     }
   }
   ResourceLimitsController_getResourceLimitDefinitions: {

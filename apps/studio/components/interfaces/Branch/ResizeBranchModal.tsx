@@ -16,6 +16,7 @@ import {
 } from 'ui'
 import { toast } from 'sonner'
 
+import { formatBytes } from 'lib/helpers'
 import {
   useBranchSliderResourceLimits,
   SliderSpecification,
@@ -125,6 +126,17 @@ export const BranchResizeModal: React.FC<Props> = ({
     return apiVal / s.divider
   }
 
+  // helper: format raw API bytes/millis -> human-readable string with unit
+  const formatCurrentValue = (rk: ResourceType, raw: number | null | undefined): string => {
+    if (raw == null) return '—'
+    if (rk === 'ram') return formatBytes(raw, 'binary')
+    if (rk === 'database_size' || rk === 'storage_size') return formatBytes(raw, 'decimal')
+    // non-byte resources: use existing divider + unit
+    const s = sliderSpecs[rk]
+    if (!s) return '—'
+    const val = raw / s.divider
+    return `${val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)} ${s.unit}`
+  }
   const getEffectiveMax = (rk: ResourceType, s: SliderSpecification): number => {
     let maxFromSpec = s.max
 
@@ -389,22 +401,17 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
     const s = sliderSpecs[rk]
     if (!s) return null
 
-    const currentDisplay = (() => {
+    const rawForRk = (() => {
       switch (rk) {
-        case 'milli_vcpu':
-          return apiToDisplay('milli_vcpu', branchMax?.milli_vcpu ?? null)
-        case 'ram':
-          return apiToDisplay('ram', branchMax?.ram_bytes ?? null)
-        case 'iops':
-          return apiToDisplay('iops', branchMax?.iops ?? null)
-        case 'database_size':
-          return apiToDisplay('database_size', branchMax?.nvme_bytes ?? null)
-        case 'storage_size':
-          return hasStorage ? apiToDisplay('storage_size', branchMax?.storage_bytes ?? null) : undefined
-        default:
-          return undefined
+        case 'milli_vcpu': return branchMax?.milli_vcpu ?? null
+        case 'ram': return branchMax?.ram_bytes ?? null
+        case 'iops': return branchMax?.iops ?? null
+        case 'database_size': return branchMax?.nvme_bytes ?? null
+        case 'storage_size': return hasStorage ? (branchMax?.storage_bytes ?? null) : null
+        default: return null
       }
     })()
+    const currentDisplay = formatCurrentValue(rk, rawForRk)
 
     const value = watch(rk as keyof FormValues) as number
     const effectiveMin = getEffectiveMin(rk, s)
@@ -421,9 +428,8 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
             <div className="text-[11px] text-foreground-muted font-mono">
               Current:{' '}
               <span className="inline-block w-20 text-right">
-                {currentDisplay ?? '—'}
-              </span>{' '}
-              {s.unit}
+                {currentDisplay}
+              </span>
             </div>
             <div className="text-[11px] text-foreground-muted font-mono">
               New:{' '}

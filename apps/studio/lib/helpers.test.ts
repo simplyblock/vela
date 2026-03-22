@@ -119,16 +119,36 @@ describe('propsAreEqual', () => {
 })
 
 describe('formatBytes', () => {
-  it('should return the formatted bytes', () => {
-    const result = formatBytes(1024)
+  it('should return the formatted bytes in binary mode', () => {
+    const result = formatBytes(1024, 'binary')
 
-    expect(result).toEqual('1 KB')
+    expect(result).toEqual('1 KiB')
   })
 
-  it('should return the formatted bytes in MB', () => {
-    const result = formatBytes(1024 * 1024)
+  it('should return the formatted bytes in MiB', () => {
+    const result = formatBytes(1024 * 1024, 'binary')
 
-    expect(result).toEqual('1 MB')
+    expect(result).toEqual('1 MiB')
+  })
+
+  it('should return 1 GB in decimal mode for 1_000_000_000 bytes', () => {
+    expect(formatBytes(1_000_000_000, 'decimal')).toEqual('1 GB')
+  })
+
+  it('should return 1.5 GB in decimal mode for 1_500_000_000 bytes', () => {
+    expect(formatBytes(1_500_000_000, 'decimal')).toEqual('1.5 GB')
+  })
+
+  it('should return 500 MB in decimal mode for 500_000_000 bytes', () => {
+    expect(formatBytes(500_000_000, 'decimal')).toEqual('500 MB')
+  })
+
+  it('should return 0 B in decimal mode for 0 bytes', () => {
+    expect(formatBytes(0, 'decimal')).toEqual('0 B')
+  })
+
+  it('should return -1 GB in decimal mode for negative 1_000_000_000 bytes', () => {
+    expect(formatBytes(-1_000_000_000, 'decimal')).toEqual('-1 GB')
   })
 })
 

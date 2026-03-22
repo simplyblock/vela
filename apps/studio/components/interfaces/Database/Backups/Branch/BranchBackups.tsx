@@ -277,7 +277,7 @@ const BranchBackups = () => {
                                   </TableCell>
                                   <TableCell className="text-right text-sm text-foreground-light">
                                     {typeof backup.sizeBytes === 'number'
-                                      ? formatBytes(backup.sizeBytes, 2)
+                                      ? formatBytes(backup.sizeBytes, 'decimal', 2)
                                       : '—'}
                                   </TableCell>
                                   <TableCell className="text-right">

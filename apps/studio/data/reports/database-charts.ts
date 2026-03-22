@@ -243,7 +243,7 @@ export const getReportAttributesV2: (
       valuePrecision: 2,
       YAxisProps: {
         width: 75,
-        tickFormatter: (value: any) => formatBytes(value, 2),
+        tickFormatter: (value: any) => formatBytes(value, 'binary', 2),
       },
       attributes: [
         {
@@ -520,7 +520,7 @@ export const getReportAttributesV2: (
       showGrid: true,
       YAxisProps: {
         width: 65,
-        tickFormatter: (value: any) => formatBytes(value, 1),
+        tickFormatter: (value: any) => formatBytes(value, 'decimal', 1),
       },
       hideChartType: false,
       defaultChartStyle: 'line',

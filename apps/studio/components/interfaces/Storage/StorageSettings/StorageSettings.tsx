@@ -167,7 +167,7 @@ const StorageSettings = () => {
                               bytes.{' '}
                             </>
                           )}
-                          Maximum upload file size is {formatBytes(maxBytes)}.
+                          Maximum upload file size is {formatBytes(maxBytes, 'decimal')}.
                         </>
                       }
                     >

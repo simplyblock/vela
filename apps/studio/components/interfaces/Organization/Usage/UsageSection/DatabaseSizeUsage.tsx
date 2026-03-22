@@ -76,7 +76,7 @@ const DatabaseSizeUsage = ({
             <div className="flex items-center justify-between">
               <p className="text-xs text-foreground-light">Max database size</p>
               <p className="text-xs">
-                {databaseSizeUsage?.usage ? formatBytes(databaseSizeUsage?.usage_original) : '-'}
+                {databaseSizeUsage?.usage ? formatBytes(databaseSizeUsage?.usage_original, 'decimal') : '-'}
               </p>
             </div>
           </div>
@@ -126,13 +126,13 @@ const DatabaseSizeUsage = ({
                       <div className="flex items-center h-6 gap-3">
                         <span className="text-foreground-light text-sm font-mono flex items-center gap-2">
                           <span className="text-foreground font-semibold font-mono -mt-[2px]">
-                            {formatBytes(project.usage)}
+                            {formatBytes(project.usage, 'decimal')}
                           </span>{' '}
                           Database Size
                         </span>
                         <InfoTooltip side="top">
                           <p>
-                            {formatBytes(project.usage)} GB database size as reported by Postgres.
+                            {formatBytes(project.usage, 'decimal')} database size as reported by Postgres.
                           </p>
                         </InfoTooltip>
                       </div>

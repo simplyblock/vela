@@ -1,3 +1,5 @@
+import { formatBytes } from 'lib/helpers'
+
 // lib/resource-utils.ts
 export type ResourceKey =
   | 'milli_vcpu'
@@ -59,10 +61,8 @@ export function formatResource(key: string, raw: number | null | undefined): str
 
   if (value == null) return '—'
 
-  if (meta.unit === 'GiB' || meta.unit === 'GB') {
-    if (value < 10) return `${value.toFixed(2)} ${meta.unit}`
-    return `${Math.round(value)} ${meta.unit}`
-  }
+  if (meta.unit === 'GB') return formatBytes(raw, 'decimal', value < 10 ? 2 : 0)
+  if (meta.unit === 'GiB') return formatBytes(raw, 'binary', value < 10 ? 2 : 0)
 
   if (meta.unit === 'vCPU') {
     return value % 1 === 0 ? `${value.toFixed(0)} ${meta.unit}` : `${value.toFixed(1)} ${meta.unit}`

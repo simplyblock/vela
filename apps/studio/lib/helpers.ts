@@ -114,20 +114,27 @@ export const propsAreEqual = (prevProps: any, nextProps: any) => {
 
 export const formatBytes = (
   bytes: any,
+  mode: 'binary' | 'decimal',
   decimals = 2,
-  size?: 'bytes' | 'KB' | 'MB' | 'GB' | 'TB' | 'PB' | 'EB' | 'ZB' | 'YB'
+  size?: 'bytes' | 'KiB' | 'MiB' | 'GiB' | 'TiB' | 'PiB' | 'KB' | 'MB' | 'GB' | 'TB' | 'PB'
 ) => {
-  const k = 1024
+  const k = mode === 'decimal' ? 1000 : 1024
   const dm = decimals < 0 ? 0 : decimals
-  const sizes = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+  const sizes =
+    mode === 'decimal'
+      ? ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+      : ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
 
-  if (bytes === 0 || bytes === undefined) return size !== undefined ? `0 ${size}` : '0 bytes'
+  if (bytes === 0 || bytes === undefined) return size !== undefined ? `0 ${size}` : `0 ${sizes[0]}`
 
   // Handle negative values
   const isNegative = bytes < 0
   const absBytes = Math.abs(bytes)
 
-  const i = size !== undefined ? sizes.indexOf(size) : Math.floor(Math.log(absBytes) / Math.log(k))
+  const i =
+    size !== undefined
+      ? sizes.indexOf(size)
+      : Math.min(Math.floor(Math.log(absBytes) / Math.log(k)), sizes.length - 1)
   const formattedValue = parseFloat((absBytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
 
   return isNegative ? '-' + formattedValue : formattedValue

@@ -266,7 +266,7 @@ const FileExplorerColumn = ({
       {snap.view === STORAGE_VIEWS.LIST && (
         <div className="shrink-0 rounded-b-md z-10 flex min-w-min items-center bg-panel-footer-light px-2.5 py-2 [[data-theme*=dark]_&]:bg-panel-footer-dark w-full">
           <p className="text-sm">
-            {formatBytes(columnItemsSize)} for {columnItems.length} items
+            {formatBytes(columnItemsSize, 'decimal')} for {columnItems.length} items
           </p>
         </div>
       )}

@@ -1,3 +1,5 @@
+import { formatBytes } from 'lib/helpers'
+
 // lib/resource-utils.ts
 export type ResourceKey =
   | 'milli_vcpu'
@@ -56,13 +58,11 @@ export function formatForUnit(
   }
 
   if (unitKey === 'ram' || unitKey === 'ram_bytes') {
-    // GiB
-    return v < 10 ? `${v.toFixed(2)} GiB` : `${Math.round(v)} GiB`
+    return formatBytes(raw, 'binary', v < 10 ? 2 : 0)
   }
 
   if (unitKey === 'nvme_bytes' || unitKey === 'database_size' || unitKey === 'storage_bytes' || unitKey === 'storage_size') {
-    // GB decimal
-    return v < 10 ? `${v.toFixed(2)} GB` : `${Math.round(v)} GB`
+    return formatBytes(raw, 'decimal', v < 10 ? 2 : 0)
   }
 
   // iops or fallback numeric

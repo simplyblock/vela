@@ -42,7 +42,7 @@ const Bucket = ({ language, apikey, endpoint }: ContentProps) => {
         </p>
         <p className="text-sm text-foreground-light">
           Max file size limit:{' '}
-          {maxFileSizeLimit === null ? 'No limit' : `${formatBytes(maxFileSizeLimit)}`}
+          {maxFileSizeLimit === null ? 'No limit' : `${formatBytes(maxFileSizeLimit, 'decimal')}`}
         </p>
       </div>
 

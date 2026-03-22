@@ -69,7 +69,7 @@ const ChartHeader = ({
 
     if (shouldFormatBytes) {
       const bytesValue = isNetworkChart ? Math.abs(value) : value
-      return formatBytes(bytesValue, valuePrecision)
+      return formatBytes(bytesValue, 'decimal', valuePrecision)
     }
 
     return numberFormatter(value, valuePrecision)

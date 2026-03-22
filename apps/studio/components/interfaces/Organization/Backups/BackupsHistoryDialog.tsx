@@ -80,7 +80,7 @@ export const BackupsHistoryDialog = ({
                   </TableCell>
                   <TableCell className="text-sm text-foreground-light">
                     {typeof backup.sizeBytes === 'number'
-                      ? formatBytes(backup.sizeBytes, 2)
+                      ? formatBytes(backup.sizeBytes, 'decimal', 2)
                       : '—'}
                   </TableCell>
                   <TableCell>

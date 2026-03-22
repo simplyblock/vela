@@ -269,7 +269,7 @@ const DatabaseUsage = () => {
                 <div className="col-span-4 inline-grid grid-cols-12 gap-12 w-full mt-5">
                   <div className="grid gap-2 col-span-4 xl:col-span-2">
                     <h5>Space used</h5>
-                    <span className="text-lg">{formatBytes(databaseSizeBytes, 2, 'GB')}</span>
+                    <span className="text-lg">{formatBytes(databaseSizeBytes, 'decimal', 2, 'GB')}</span>
                   </div>
                   <div className="grid gap-2 col-span-4 xl:col-span-3">
                     <h5>Provisioned disk size</h5>
@@ -320,7 +320,7 @@ const DatabaseUsage = () => {
                             {object.schema_name}.{object.relname}
                           </Table.td>
                           <Table.td>
-                            {formatBytes(object.table_size)} ({percentage}%)
+                            {formatBytes(object.table_size, 'decimal')} ({percentage}%)
                           </Table.td>
                         </Table.tr>
                       )

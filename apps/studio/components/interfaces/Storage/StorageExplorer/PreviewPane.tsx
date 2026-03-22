@@ -134,7 +134,7 @@ const PreviewPane = () => {
 
   const width = 450
   const isOpen = !isEmpty(file)
-  const size = file.metadata ? formatBytes(file.metadata.size) : null
+  const size = file.metadata ? formatBytes(file.metadata.size, 'decimal') : null
   const mimeType = file.metadata ? file.metadata.mimetype : undefined
   const createdAt = file.created_at ? new Date(file.created_at).toLocaleString() : 'Unknown'
   const updatedAt = file.updated_at ? new Date(file.updated_at).toLocaleString() : 'Unknown'

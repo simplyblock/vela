@@ -81,8 +81,8 @@ export default function DiskSpaceBar({ form }: DiskSpaceBarProps) {
     <div className="flex flex-col gap-2">
       <div className="flex items-center h-6 gap-3">
         <span className="text-foreground-light text-sm font-mono flex items-center gap-2">
-          {usedSizeTotal.toFixed(2)}
-          <span>GB used of </span>
+          {formatBytes(diskBreakdownBytes.totalUsedBytes, 'decimal')}
+          <span>used of </span>
           <span className="text-foreground font-semibold -mt-[2px]">
             <MotionNumber value={newTotalSize} style={{ lineHeight: 0.8 }} className="font-mono" />
           </span>{' '}
@@ -237,10 +237,10 @@ export default function DiskSpaceBar({ form }: DiskSpaceBarProps) {
       <p className="text-xs text-foreground-lighter my-4">
         <span className="font-semibold">Note:</span> Disk Size refers to the total space your
         project occupies on disk, including the database itself (currently{' '}
-        <span>{formatBytes(diskBreakdownBytes?.dbSizeBytes, 2, 'GB')}</span>), additional files like
+        <span>{formatBytes(diskBreakdownBytes?.dbSizeBytes, 'decimal', 2, 'GB')}</span>), additional files like
         the write-ahead log (currently{' '}
-        <span>{formatBytes(diskBreakdownBytes?.walSizeBytes, 2, 'GB')}</span>), and other system
-        resources (currently <span>{formatBytes(diskBreakdownBytes?.systemBytes, 2, 'GB')}</span>).
+        <span>{formatBytes(diskBreakdownBytes?.walSizeBytes, 'decimal', 2, 'GB')}</span>), and other system
+        resources (currently <span>{formatBytes(diskBreakdownBytes?.systemBytes, 'decimal', 2, 'GB')}</span>).
         Data can take 5 minutes to refresh.
       </p>
     </div>
@@ -269,7 +269,7 @@ const LegendItem = ({
       <div className="flex items-center">
         <div className={cn('w-2 h-2 rounded-full mr-2', color)} />
         <span>
-          {name} - {formatBytes(size, 2, 'GB')}
+          {name} - {formatBytes(size, 'decimal', 2, 'GB')}
         </span>
       </div>
       <p>{description}</p>

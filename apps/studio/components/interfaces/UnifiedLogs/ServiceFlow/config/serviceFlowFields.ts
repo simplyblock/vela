@@ -534,11 +534,11 @@ export const storagePrimaryFields: BlockFieldConfig[] = [
           : null)
 
       if (contentType && contentLength) {
-        return `${contentType} - ${formatBytes(contentLength)}`
+        return `${contentType} - ${formatBytes(contentLength, 'decimal')}`
       } else if (contentType) {
         return contentType
       } else if (contentLength) {
-        return formatBytes(contentLength)
+        return formatBytes(contentLength, 'decimal')
       }
       return 'Unknown type'
     },

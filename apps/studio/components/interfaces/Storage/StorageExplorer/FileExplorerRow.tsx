@@ -276,7 +276,7 @@ const FileExplorerRow: ItemRenderer<StorageItem, FileExplorerRowProps> = ({
             : []),
         ]
 
-  const size = item.metadata ? formatBytes(item.metadata.size) : '-'
+  const size = item.metadata ? formatBytes(item.metadata.size, 'decimal') : '-'
   const mimeType = item.metadata ? item.metadata.mimetype : '-'
   const createdAt = item.created_at ? new Date(item.created_at).toLocaleString() : '-'
   const updatedAt = item.updated_at ? new Date(item.updated_at).toLocaleString() : '-'

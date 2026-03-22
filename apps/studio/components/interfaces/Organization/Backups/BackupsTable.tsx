@@ -73,7 +73,7 @@ export const BackupsTable = ({ rows, onDisable, onEnable, onViewBackups }: Backu
 
         <TableCell className="text-right text-sm text-foreground-light">
           {typeof row.storageUsedBytes === 'number'
-            ? formatBytes(row.storageUsedBytes, 2)
+            ? formatBytes(row.storageUsedBytes, 'decimal', 2)
             : '—'}
         </TableCell>
 

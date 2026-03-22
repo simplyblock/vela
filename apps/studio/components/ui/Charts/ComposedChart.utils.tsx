@@ -186,7 +186,7 @@ const CustomTooltip = ({
           </span>
           <span className="ml-3.5 flex items-end gap-1">
             {shouldFormatBytes
-              ? formatBytes(isNetworkChart ? Math.abs(entry.value) : entry.value, valuePrecision)
+              ? formatBytes(isNetworkChart ? Math.abs(entry.value) : entry.value, 'decimal', valuePrecision)
               : numberFormatter(entry.value, valuePrecision)}
             {isPercentage ? '%' : ''}
             {format === 'ms' ? 'ms' : ''}
@@ -221,7 +221,7 @@ const CustomTooltip = ({
               <div className="flex items-end gap-1">
                 <span className="text-base">
                   {shouldFormatBytes
-                    ? formatBytes(total as number, valuePrecision)
+                    ? formatBytes(total as number, 'decimal', valuePrecision)
                     : numberFormatter(total as number, valuePrecision)}
                   {isPercentage ? '%' : ''}
                   {format === 'ms' ? 'ms' : ''}

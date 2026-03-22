@@ -64,7 +64,7 @@ export const RestoreBackupDialog = ({
           <DialogTitle>Restore backup</DialogTitle>
           <DialogDescription>
             {row && backup
-              ? `Restore ${backup.id} (${formatBytes(backup.sizeBytes, 2)})`
+              ? `Restore ${backup.id} (${formatBytes(backup.sizeBytes, 'decimal', 2)})`
               : 'Select a backup to restore.'}
           </DialogDescription>
         </DialogHeader>

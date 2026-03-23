@@ -6,11 +6,11 @@ import { toast } from 'sonner'
 import { useParams } from 'common'
 import Panel from 'components/ui/Panel'
 import { useJwtSecretUpdatingStatusQuery } from 'data/config/jwt-secret-updating-status-query'
-import { useProjectSettingsV2Query } from 'data/config/project-settings-v2-query'
 import { Input } from 'ui'
 import { getLastUsedAPIKeys, useLastUsedAPIKeysLogQuery } from './DisplayApiSettings.utils'
 import { useSelectedBranchQuery } from 'data/branches/selected-branch-query'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
+import { getKeys, useAPIKeysQuery, APIKey } from 'data/api-keys/api-keys-query'
 
 export const DisplayApiSettings = ({
   showTitle = true,
@@ -25,47 +25,61 @@ export const DisplayApiSettings = ({
   const { data: branch } = useSelectedBranchQuery()
 
   const {
-    data: settings,
-    isError: isProjectSettingsError,
-    isLoading: isProjectSettingsLoading,
-  } = useProjectSettingsV2Query({ orgRef, projectRef })
+    data: apiKeys = [],
+    isError: isAPIKeysError,
+    isLoading: isAPIKeysLoading,
+  } = useAPIKeysQuery(
+    { branch, reveal: true },
+    {
+      enabled: !!branch,
+    }
+  )
+
   const {
     data,
     isError: isJwtSecretUpdateStatusError,
     isLoading: isJwtSecretUpdateStatusLoading,
   } = useJwtSecretUpdatingStatusQuery({ branch })
+
   const jwtSecretUpdateStatus = data?.jwtSecretUpdateStatus
 
-  const { isLoading: isLoadingPermissions, can: canReadAPIKeys } = useCheckPermissions("branch:api:getkeys")
+  const { isLoading: isLoadingPermissions, can: canReadAPIKeys } =
+    useCheckPermissions('branch:api:getkeys')
 
-  const isLoading = isProjectSettingsLoading || isLoadingPermissions
+  const isLoading = isAPIKeysLoading || isLoadingPermissions
 
   const isNotUpdatingJwtSecret =
     jwtSecretUpdateStatus === undefined || jwtSecretUpdateStatus === JwtSecretUpdateStatus.Updated
 
-  const apiKeys = useMemo(() => settings?.service_api_keys ?? [], [settings])
+  // Keep this page focused on the legacy keys it previously displayed.
+  // The API keys query is now the single source of truth.
+  const { anonKey, serviceKey } = useMemo(() => getKeys(apiKeys), [apiKeys])
+  const displayedKeys = useMemo((): APIKey[] => {
+    return [anonKey, serviceKey].filter((key): key is APIKey => key !== undefined)
+  }, [anonKey, serviceKey])
+
   // api keys should not be empty. However it can be populated with a delay on project creation
-  const isApiKeysEmpty = apiKeys.length === 0
+  const isApiKeysEmpty = displayedKeys.length === 0
 
   const { isLoading: isLoadingLastUsed, logData: lastUsedLogData } = useLastUsedAPIKeysLogQuery(
     orgRef!,
     projectRef!,
-    branchRef!,
+    branchRef!
   )
 
   const lastUsedAPIKeys = useMemo(() => {
-    if (apiKeys.length < 1 || !lastUsedLogData || lastUsedLogData.length < 1) {
+    if (displayedKeys.length < 1 || !lastUsedLogData || lastUsedLogData.length < 1) {
       return {}
     }
 
     try {
-      return getLastUsedAPIKeys(apiKeys, lastUsedLogData)
+      return getLastUsedAPIKeys(displayedKeys, lastUsedLogData)
     } catch (e: any) {
       toast.error('Failed to identify when the anon and service_role keys were last used')
       console.error(e)
       return {}
     }
-  }, [lastUsedLogData, apiKeys])
+  }, [lastUsedLogData, displayedKeys])
 
   return (
     <>
@@ -99,26 +113,24 @@ export const DisplayApiSettings = ({
               access levels.
             </p>
           </div>
-        ) : isProjectSettingsError || isJwtSecretUpdateStatusError ? (
+        ) : isAPIKeysError || isJwtSecretUpdateStatusError ? (
           <div className="flex items-center justify-center py-8 space-x-2">
             <AlertCircle size={16} strokeWidth={1.5} />
             <p className="text-sm text-foreground-light">
-              {isProjectSettingsError
-                ? 'Failed to retrieve API keys'
-                : 'Failed to update JWT secret'}
+              {isAPIKeysError ? 'Failed to retrieve API keys' : 'Failed to update JWT secret'}
             </p>
           </div>
-        ) : isApiKeysEmpty || isProjectSettingsLoading || isJwtSecretUpdateStatusLoading ? (
+        ) : isApiKeysEmpty || isAPIKeysLoading || isJwtSecretUpdateStatusLoading ? (
           <div className="flex items-center justify-center py-8 space-x-2">
             <Loader2 className="animate-spin" size={16} strokeWidth={1.5} />
             <p className="text-sm text-foreground-light">
-              {isProjectSettingsLoading || isApiKeysEmpty
+              {isAPIKeysLoading || isApiKeysEmpty
                 ? 'Retrieving API keys'
                 : 'JWT secret is being updated'}
             </p>
           </div>
         ) : (
-          apiKeys.map((x, i: number) => (
+          displayedKeys.map((x, i: number) => (
             <Panel.Content
               key={x.api_key}
               className={
@@ -131,26 +143,21 @@ export const DisplayApiSettings = ({
                 disabled
                 layout="horizontal"
                 className="input-mono"
-                // @ts-ignore
                 label={
                   <>
-                    {x.tags?.split(',').map((x, i: number) => (
-                      <code key={`${x}${i}`} className="text-xs text-code">
-                        {x}
+                    <code className="text-xs text-code">{x.name}</code>
+
+                    {x.name === 'service_role' && (
+                      <code className="text-xs text-code !bg-destructive !text-white !border-destructive">
+                        secret
                       </code>
-                    ))}
-                    {x.tags === 'service_role' && (
-                      <>
-                        <code className="text-xs text-code !bg-destructive !text-white !border-destructive">
-                          secret
-                        </code>
-                      </>
                     )}
-                    {x.tags === 'anon' && <code className="text-xs text-code">public</code>}
+
+                    {x.name === 'anon' && <code className="text-xs text-code">public</code>}
                   </>
                 }
                 copy={canReadAPIKeys && isNotUpdatingJwtSecret}
-                reveal={x.tags !== 'anon' && canReadAPIKeys && isNotUpdatingJwtSecret}
+                reveal={x.name !== 'anon' && canReadAPIKeys && isNotUpdatingJwtSecret}
                 value={
                   !canReadAPIKeys
                     ? 'You need additional permissions to view API keys'
@@ -158,11 +165,11 @@ export const DisplayApiSettings = ({
                       ? 'JWT secret update failed, new API key may have issues'
                       : jwtSecretUpdateStatus === JwtSecretUpdateStatus.Updating
                         ? 'Updating JWT secret...'
-                        : x?.api_key ?? 'You need additional permissions to view API keys'
+                        : x.api_key ?? 'You need additional permissions to view API keys'
                 }
                 onChange={() => {}}
                 descriptionText={
-                  x.tags === 'service_role' ? (
+                  x.name === 'service_role' ? (
                     <>
                       This key has the ability to bypass Row Level Security. Never share it
                       publicly. If leaked, generate a new JWT secret immediately.{' '}
@@ -211,6 +218,7 @@ export const DisplayApiSettings = ({
             </Panel.Content>
           ))
         )}
+
         {showNotice ? (
           <Panel.Notice
             className="border-t"

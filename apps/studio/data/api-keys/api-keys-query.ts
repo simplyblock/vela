@@ -49,7 +49,7 @@ interface APIKeysVariables {
   reveal?: boolean
 }
 
-type APIKey = LegacyKeys | SecretKeys | PublishableKeys
+export type APIKey = LegacyKeys | SecretKeys | PublishableKeys
 
 async function getAPIKeys({ branch, reveal }: APIKeysVariables, signal?: AbortSignal) {
   if (!branch) throw new Error('branch is required')

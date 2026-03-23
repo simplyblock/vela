@@ -1,7 +1,10 @@
 import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
 import { useRef } from 'react'
 
 import useLogsQuery from 'hooks/analytics/useLogsQuery'
+
+dayjs.extend(duration)
 
 export function useLastUsedAPIKeysLogQuery(orgRef: string, projectRef: string, branchRef: string) {
   const now = useRef(new Date()).current
@@ -14,7 +17,7 @@ export function useLastUsedAPIKeysLogQuery(orgRef: string, projectRef: string, b
 
 export function getLastUsedAPIKeys(
   apiKeys: {
-    tags: string
+    name: string
     api_key: string
   }[],
   logData:
@@ -32,21 +35,21 @@ export function getLastUsedAPIKeys(
   const now = dayjs()
 
   return apiKeys.reduce(
-    (a, i) => {
-      const entry = logData?.find(
+    (acc, key) => {
+      const entry = logData.find(
         ({ role, signature_prefix }) =>
           role &&
           signature_prefix &&
-          i.tags.indexOf(role) >= 0 &&
-          i.api_key.split('.')[2]?.startsWith(signature_prefix)
+          key.name === role &&
+          key.api_key.split('.')[2]?.startsWith(signature_prefix)
       )?.timestamp
 
       if (entry) {
-        a[i.api_key] = dayjs.duration(now.diff(dayjs(entry))).humanize(false)
+        acc[key.api_key] = dayjs.duration(now.diff(dayjs(entry))).humanize(false)
       }
 
-      return a
+      return acc
     },
-    {} as { [apikey: string]: string }
+    {} as Record<string, string>
   )
 }

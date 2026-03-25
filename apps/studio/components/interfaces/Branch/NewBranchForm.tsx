@@ -73,7 +73,7 @@ const FormSchema = z.object({
 type FormState = z.infer<typeof FormSchema>
 const REQUIRED_RESOURCES: ResourceType[] = ['milli_vcpu', 'ram', 'database_size', 'iops']
 
-const isNonProdEnv = window === undefined ? false : window.location.hostname.toLowerCase() !== 'demo.vela.run';
+const isNonProdEnv = false //window === undefined ? false : window.location.hostname.toLowerCase() !== 'demo.vela.run';
 
 const NewBranchForm = ({}: NewBranchFormProps) => {
   const { slug, ref, branch } = useParams()

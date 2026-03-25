@@ -985,7 +985,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
                 />
                   </div>
 
-                  <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
+                  {/* <div className="rounded-md border p-3 text-[11px] leading-snug text-foreground-muted">
                     <p>
                       This project may incur usage-based costs once created. Review your
                       organization's billing plan and limits.{' '}
@@ -994,7 +994,7 @@ const CreateProjectPage: NextPageWithLayout = () => {
                       </Link>
                       .
                     </p>
-                  </div>
+                  </div> */}
               </section>
             )}
           </div>

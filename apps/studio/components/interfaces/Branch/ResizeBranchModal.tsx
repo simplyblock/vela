@@ -22,7 +22,8 @@ import {
   ResourceType,
 } from 'data/resource-limits/branch-slider-resource-limits'
 import { useBranchResizeMutation } from 'data/branches/branch-resize-mutation'
-import { useEffectiveBranchLimitsQuery } from 'data/resource-limits/effective-branch-limits-query'
+import { useProjectBranchMaximaQuery } from 'data/resource-limits/branch-maxima-query'
+import { useProjectAvailableCreationResourcesQuery } from 'data/resource-limits/project-available-creation-resources-query'
 
 type BranchMaxResources = {
   milli_vcpu: number
@@ -54,7 +55,7 @@ type FormValues = {
  * BranchResizeModal (uses branchMax prop)
  *
  * - slider specs from useBranchSliderResourceLimits(orgSlug, projectRef)
- * - effective limits from useEffectiveBranchLimitsQuery
+ * - effective limits from branch-maxima + project available resources
  * - current values read from branchMax prop
  * - displays current vs new values and submits changed API params
  */
@@ -69,10 +70,10 @@ export const BranchResizeModal: React.FC<Props> = ({
 }) => {
   const [open, setOpen] = useState(false)
   const formatSliderDisplay = (value: number) => value.toFixed(2)
-  const { data: effectiveBranchLimits } = useEffectiveBranchLimitsQuery({
-    orgRef: orgSlug,
-    projectRef,
-    branchRef: branchId
+  const { data: branchMaxima } = useProjectBranchMaximaQuery({ orgRef: orgSlug, projectRef })
+  const { data: projectAvailable } = useProjectAvailableCreationResourcesQuery({
+    orgId: orgSlug,
+    projectId: projectRef,
   })
 
   // slider specs (merged system + project limits)
@@ -124,54 +125,58 @@ export const BranchResizeModal: React.FC<Props> = ({
     return apiVal / s.divider
   }
 
-  /**
-   * Get effective maximum for slider by taking the minimum between:
-   * 1. The spec's max value
-   * 2. The effective branch limit (if available)
-   */
   const getEffectiveMax = (rk: ResourceType, s: SliderSpecification): number => {
     let maxFromSpec = s.max
-    
-    // Get the effective branch limit for this resource type
-    let effectiveLimitDisplay: number | null = null
-    
+
+    // Per-branch ceiling from branch-maxima
+    let perBranchCeilDisplay: number | null = null
     switch (rk) {
       case 'milli_vcpu':
-        if (effectiveBranchLimits?.milli_vcpu != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.milli_vcpu + branchMax.milli_vcpu) / s.divider
-        }
+        if (branchMaxima?.milli_vcpu != null) perBranchCeilDisplay = branchMaxima.milli_vcpu / s.divider
         break
       case 'ram':
-        if (effectiveBranchLimits?.ram != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.ram + branchMax.ram_bytes) / s.divider
-        }
+        if (branchMaxima?.ram != null) perBranchCeilDisplay = branchMaxima.ram / s.divider
         break
       case 'iops':
-        if (effectiveBranchLimits?.iops != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.iops + branchMax.iops) / s.divider
-        }
+        if (branchMaxima?.iops != null) perBranchCeilDisplay = branchMaxima.iops / s.divider
         break
       case 'database_size':
-        if (effectiveBranchLimits?.database_size != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.database_size + branchMax.nvme_bytes) / s.divider
-        }
+        if (branchMaxima?.database_size != null) perBranchCeilDisplay = branchMaxima.database_size / s.divider
         break
       case 'storage_size':
-        if (effectiveBranchLimits?.storage_size != null && branchMax.storage_bytes != null) {
-          effectiveLimitDisplay = (effectiveBranchLimits.storage_size + branchMax.storage_bytes) / s.divider
-        }
+        if (branchMaxima?.storage_size != null) perBranchCeilDisplay = branchMaxima.storage_size / s.divider
         break
     }
 
-    // If we have an effective limit, take the minimum between spec max and effective limit
-    if (effectiveLimitDisplay != null) {
-      return Math.min(maxFromSpec, effectiveLimitDisplay)
+    // Quota ceiling from project available (current + headroom)
+    let quotaCeilDisplay: number | null = null
+    switch (rk) {
+      case 'milli_vcpu':
+        if (projectAvailable?.milli_vcpu != null)
+          quotaCeilDisplay = (branchMax.milli_vcpu + projectAvailable.milli_vcpu) / s.divider
+        break
+      case 'ram':
+        if (projectAvailable?.ram != null)
+          quotaCeilDisplay = (branchMax.ram_bytes + projectAvailable.ram) / s.divider
+        break
+      case 'iops':
+        if (projectAvailable?.iops != null)
+          quotaCeilDisplay = (branchMax.iops + projectAvailable.iops) / s.divider
+        break
+      case 'database_size':
+        if (projectAvailable?.database_size != null)
+          quotaCeilDisplay = (branchMax.nvme_bytes + projectAvailable.database_size) / s.divider
+        break
+      case 'storage_size':
+        if (projectAvailable?.storage_size != null)
+          quotaCeilDisplay = ((branchMax.storage_bytes ?? 0) + projectAvailable.storage_size) / s.divider
+        break
     }
 
-    
-    
-    // Otherwise just use the spec max
-    return maxFromSpec
+    let result = maxFromSpec
+    if (perBranchCeilDisplay != null) result = Math.min(result, perBranchCeilDisplay)
+    if (quotaCeilDisplay != null) result = Math.min(result, quotaCeilDisplay)
+    return result
   }
 
 /**
@@ -239,7 +244,16 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
       maxDisplay,
       unit: s.unit,
     }
-  }, [sliderSpecs, ramUsageBytes, effectiveBranchLimits])
+  }, [sliderSpecs, ramUsageBytes, branchMaxima, projectAvailable])
+
+  const hasEffectiveLimits = useMemo(() => {
+    if (!specs) return false
+    return Object.keys(sliderSpecs).some((rk) => {
+      const s = sliderSpecs[rk as ResourceType]
+      if (!s) return false
+      return getEffectiveMax(rk as ResourceType, s) < s.max
+    })
+  }, [sliderSpecs, branchMaxima, projectAvailable])
 
   // initialize form values when modal opens (use branchMax when available, else spec.initial / effectiveMin)
   useEffect(() => {
@@ -303,7 +317,7 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
 
     reset(initial as FormValues)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, specs, branchMax, ramUsageBytes, hasStorage, effectiveBranchLimits])
+  }, [open, specs, branchMax, ramUsageBytes, hasStorage, branchMaxima, projectAvailable])
 
   // build parameters: convert display -> API units using spec.divider, compare to branchMax and include only diffs
   const buildParameters = () => {
@@ -491,7 +505,7 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
                       Database size
                       {hasStorage && ' and file storage size'} can only be increased, not decreased.
                     </li>
-                    {effectiveBranchLimits && (
+                    {hasEffectiveLimits && (
                       <li className="text-warning">
                         Some limits may be restricted by organizational or project quotas. (highlighted by this color)
                       </li>

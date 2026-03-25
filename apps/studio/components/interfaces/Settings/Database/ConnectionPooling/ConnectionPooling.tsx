@@ -248,28 +248,31 @@ export const ConnectionPooling  = () => {
                         <div className="flex flex-col gap-1 w-full">
                           <FormControl_Shadcn_>
                             <Input_Shadcn_
-                              {...rhfField}
                               type="number"
                               className="w-full"
                               value={rhfField.value ?? ''}
-                              {...form.register(field.key as keyof FormValues, {
-                                setValueAs: setValueAsNullableNumber,
-                              })}
+                              name={rhfField.name}
+                              ref={rhfField.ref}
+                              onBlur={rhfField.onBlur}
+                              onChange={(e) =>
+                                rhfField.onChange(setValueAsNullableNumber(e.target.value))
+                              }
                             />
                           </FormControl_Shadcn_>
 
-                          {field.docs &&                          
                           <p className="text-sm text-muted-foreground">
-                            {field.description}
-                            <a
-                              href={field.docs}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="underline"
-                            >
-                              Learn more
-                            </a>
-                          </p>}
+                            {field.description}{' '}
+                            {field.docs && (
+                              <a
+                                href={field.docs}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="underline"
+                              >
+                                Learn more
+                              </a>
+                            )}
+                          </p>
                         </div>
                       </FormItemLayout>
                     )}

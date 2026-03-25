@@ -548,36 +548,36 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
           )}
           <div className={`grid grid-cols-2 w-full ${sourceBranch ? 'mt-6' : ''}`}>
             <div className="space-y-1 pr-1">
-            <Label_Shadcn_
-              htmlFor="branch-name"
-              className="text-xs font-medium text-foreground whitespace-nowrap"
-            >
-              Branch name
-            </Label_Shadcn_>
-            <FormField_Shadcn_
-              control={form.control}
-              name="name"
-              render={({ field, fieldState }) => (
-                <>
-                  <Input_Shadcn_
-                    id="name"
-                    placeholder="main"
-                    className={`w-full h-9 text-sm ${fieldState.error ? 'border-destructive' : ''}`}
-                    {...field}
-                    onChange={(e) => {
-                      field.onChange(e)
-                      setTimeout(() => form.trigger('name'), 100)
-                    }}
-                    onBlur={() => form.trigger('name')}
-                  />
-                  {fieldState.error && (
-                    <p className="text-[11px] text-destructive font-medium mt-1">
-                      {fieldState.error.message}
-                    </p>
-                  )}
-                </>
-              )}
-            />
+              <Label_Shadcn_
+                htmlFor="branch-name"
+                className="text-xs font-medium text-foreground whitespace-nowrap"
+              >
+                Branch name
+              </Label_Shadcn_>
+              <FormField_Shadcn_
+                control={form.control}
+                name="name"
+                render={({ field, fieldState }) => (
+                  <>
+                    <Input_Shadcn_
+                      id="name"
+                      placeholder="main"
+                      className={`w-full h-9 text-sm ${fieldState.error ? 'border-destructive' : ''}`}
+                      {...field}
+                      onChange={(e) => {
+                        field.onChange(e)
+                        setTimeout(() => form.trigger('name'), 100)
+                      }}
+                      onBlur={() => form.trigger('name')}
+                    />
+                    {fieldState.error && (
+                      <p className="text-[11px] text-destructive font-medium mt-1">
+                        {fieldState.error.message}
+                      </p>
+                    )}
+                  </>
+                )}
+              />
 
               <p className="text-[11px] leading-snug text-foreground-muted">
                 This branch will be created with the settings below.
@@ -665,7 +665,8 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
 
                   // Get the most relevant error to show
                   const passwordStrengthError = form.formState.errors.databasePasswordStrength
-                  const errorToShow = passwordFieldState.error?.message || passwordStrengthError?.message
+                  const errorToShow =
+                    passwordFieldState.error?.message || passwordStrengthError?.message
                   const hasError = !!errorToShow
 
                   return (
@@ -685,7 +686,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                           placeholder="Give a strong password"
                           className={`h-9 pr-10 text-sm ${hasError ? 'border-destructive' : ''}`}
                           {...field}
-                          onChange={ (event) => {
+                          onChange={(event) => {
                             field.onChange(event)
                             const value = event.target.value
                             if (value === '') {
@@ -716,9 +717,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
 
                       {/* Show error if exists */}
                       {errorToShow && (
-                        <p className="text-[11px] text-destructive font-medium">
-                          {errorToShow}
-                        </p>
+                        <p className="text-[11px] text-destructive font-medium">{errorToShow}</p>
                       )}
 
                       <div className="space-y-2">
@@ -746,27 +745,27 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                 <div className="grid grid-cols-2">
                   <div className="space-y-6">
                     {projectHasStorage && (
-                    <div className="flex items-start gap-3 text-sm">
-                      <FormField_Shadcn_
-                        control={form.control}
-                        name="enableStorageService"
-                        render={({ field }) => (
-                          <>
-                            <Checkbox_Shadcn_
-                              id="enable-storage-service"
-                              checked={field.value}
-                              onCheckedChange={(checked) => field.onChange(checked === true)}
-                            />
-                            <Label_Shadcn_
-                              htmlFor="enable-storage-service"
-                              className="text-foreground text-xs font-medium leading-tight"
-                            >
-                              Include file storage
-                            </Label_Shadcn_>
-                          </>
-                        )}
-                      />
-                    </div>
+                      <div className="flex items-start gap-3 text-sm">
+                        <FormField_Shadcn_
+                          control={form.control}
+                          name="enableStorageService"
+                          render={({ field }) => (
+                            <>
+                              <Checkbox_Shadcn_
+                                id="enable-storage-service"
+                                checked={field.value}
+                                onCheckedChange={(checked) => field.onChange(checked === true)}
+                              />
+                              <Label_Shadcn_
+                                htmlFor="enable-storage-service"
+                                className="text-foreground text-xs font-medium leading-tight"
+                              >
+                                Include file storage
+                              </Label_Shadcn_>
+                            </>
+                          )}
+                        />
+                      </div>
                     )}
                     <div className="flex items-start gap-3 text-sm">
                       <FormField_Shadcn_
@@ -799,6 +798,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                           <>
                             <Checkbox_Shadcn_
                               id="enable-pitr"
+                              disabled={isNonProdEnv}
                               checked={field.value}
                               onCheckedChange={(checked) => field.onChange(checked === true)}
                             />

@@ -73,7 +73,7 @@ const FormSchema = z.object({
 type FormState = z.infer<typeof FormSchema>
 const REQUIRED_RESOURCES: ResourceType[] = ['milli_vcpu', 'ram', 'database_size', 'iops']
 
-const isNonProdEnv = process.env.NEXT_PUBLIC_ENVIRONMENT !== 'prod'
+const isNonProdEnv = window.location.hostname.toLowerCase() !== 'demo.vela.run';
 
 const NewBranchForm = ({}: NewBranchFormProps) => {
   const { slug, ref, branch } = useParams()
@@ -790,29 +790,28 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                         )}
                       />
                     </div>
-                    {isNonProdEnv && (
-                      <div className="flex items-start gap-3 text-sm">
-                        <FormField_Shadcn_
-                          control={form.control}
-                          name="pitrEnabled"
-                          render={({ field }) => (
-                            <>
-                              <Checkbox_Shadcn_
-                                id="enable-pitr"
-                                checked={field.value}
-                                onCheckedChange={(checked) => field.onChange(checked === true)}
-                              />
-                              <Label_Shadcn_
-                                htmlFor="enable-pitr"
-                                className="text-foreground text-xs font-medium leading-tight whitespace-nowrap"
-                              >
-                                Enable point-in-time recovery
-                              </Label_Shadcn_>
-                            </>
-                          )}
-                        />
-                      </div>
-                    )}
+                    <div className="flex items-start gap-3 text-sm">
+                      <FormField_Shadcn_
+                        control={form.control}
+                        name="pitrEnabled"
+                        disabled={isNonProdEnv}
+                        render={({ field }) => (
+                          <>
+                            <Checkbox_Shadcn_
+                              id="enable-pitr"
+                              checked={field.value}
+                              onCheckedChange={(checked) => field.onChange(checked === true)}
+                            />
+                            <Label_Shadcn_
+                              htmlFor="enable-pitr"
+                              className="text-foreground text-xs font-medium leading-tight whitespace-nowrap"
+                            >
+                              Enable point-in-time recovery{!isNonProdEnv && ' (coming soon)'}
+                            </Label_Shadcn_>
+                          </>
+                        )}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-start text-sm">
                     <FormField_Shadcn_

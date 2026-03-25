@@ -60,7 +60,6 @@ const FormSchema = z.object({
   readReplicas: z.number(),
   withConfig: z.boolean().optional(),
   withData: z.boolean().optional(),
-  pitrEnabled: z.boolean().optional(),
   resources: z.object({
     milli_vcpu: z.number(),
     ram: z.number(),
@@ -72,8 +71,6 @@ const FormSchema = z.object({
 
 type FormState = z.infer<typeof FormSchema>
 const REQUIRED_RESOURCES: ResourceType[] = ['milli_vcpu', 'ram', 'database_size', 'iops']
-
-const isNonProdEnv = process.env.NEXT_PUBLIC_ENVIRONMENT !== 'prod'
 
 const NewBranchForm = ({}: NewBranchFormProps) => {
   const { slug, ref, branch } = useParams()
@@ -162,7 +159,6 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
       readReplicas: 0,
       withConfig: true,
       withData: true,
-      pitrEnabled: false,
       resources: {
         milli_vcpu: 0,
         ram: 0,
@@ -321,7 +317,6 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
         withData: branch ? values.withData : undefined,
         envType: values.environmentType,
         deployment: resourceAllocations,
-        pitrEnabled: isNonProdEnv ? values.pitrEnabled : undefined,
       },
       {
         onSuccess: (data) => {
@@ -790,29 +785,6 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                         )}
                       />
                     </div>
-                    {isNonProdEnv && (
-                      <div className="flex items-start gap-3 text-sm">
-                        <FormField_Shadcn_
-                          control={form.control}
-                          name="pitrEnabled"
-                          render={({ field }) => (
-                            <>
-                              <Checkbox_Shadcn_
-                                id="enable-pitr"
-                                checked={field.value}
-                                onCheckedChange={(checked) => field.onChange(checked === true)}
-                              />
-                              <Label_Shadcn_
-                                htmlFor="enable-pitr"
-                                className="text-foreground text-xs font-medium leading-tight whitespace-nowrap"
-                              >
-                                Enable point-in-time recovery
-                              </Label_Shadcn_>
-                            </>
-                          )}
-                        />
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-start text-sm">
                     <FormField_Shadcn_

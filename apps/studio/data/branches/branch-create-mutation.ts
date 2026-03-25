@@ -39,7 +39,6 @@ type BranchCreationVariables = {
   branchName: string
   envType?: string
   withConfig?: boolean
-  pitrEnabled?: boolean
   deployment?: DeploymentParameters
 }
 
@@ -55,7 +54,6 @@ export async function createBranch({
   withConfig,
   deployment,
   envType,
-  pitrEnabled,
 }: BranchCreateVariables) {
   const isClone = branchRef !== undefined
   const isRestore = backupRef !== undefined
@@ -102,7 +100,6 @@ export async function createBranch({
       source: source,
       restore: restore,
       deployment: !isClone && !isRestore ? deployment : undefined,
-      pitr_enabled: process.env.NEXT_PUBLIC_ENVIRONMENT !== 'prod' ? pitrEnabled : undefined,
     },
   })
 

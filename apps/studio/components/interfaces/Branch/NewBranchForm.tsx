@@ -793,12 +793,11 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                       <FormField_Shadcn_
                         control={form.control}
                         name="pitrEnabled"
-                        disabled={isNonProdEnv}
                         render={({ field }) => (
                           <>
                             <Checkbox_Shadcn_
                               id="enable-pitr"
-                              disabled={isNonProdEnv}
+                              disabled={!isNonProdEnv}
                               checked={field.value}
                               onCheckedChange={(checked) => field.onChange(checked === true)}
                             />

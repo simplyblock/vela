@@ -12,8 +12,8 @@ services:
     command: ['pnpm', 'exec', 'turbo', 'run', 'dev', '--filter=studio', '--parallel', '--env-mode=loose']
     restart: unless-stopped
     volumes:
-      - '../apps:/app/apps'
-      - '../packages:/app/packages'
+      - '../apps:/app/apps:Z'
+      - '../packages:/app/packages:Z'
       - 'nextjs-compiler-cache:/app/apps/studio/.next/dev/cache'
     environment:
       VELA_PLATFORM_DEV_MODE: 'true'

@@ -151,15 +151,30 @@ export const ConnectionPooling  = () => {
     if (isSuccess) resetForm()
   }, [isSuccess])
 
-  const onSubmit = (values: FormValues) => {
-    if (!slug || !ref || !branch) return
-    // FIXME: using a locally typed version because the current PgbouncerConfigurationUpdateVariables is not typed correctly ideally we would want to use that one 
-    const payload: PgBouncerPayload = {
-      slug: slug,
-      ref: ref,
+    const onSubmit = (values: FormValues) => {
+    if (!slug || !ref || !branch || !data) return
+
+    // 1. Merge the original data with the form values
+    const payload = {
+      ...data, // Include all original fields the backend might require
+      slug,
+      ref,
       branchId: branch,
-      ...values,
+      
+      // 2. Explicitly map the form values to ensure nulls are preserved 
+      // instead of dropping them if they evaluate to undefined
+      default_pool_size: values.default_pool_size,
+      max_client_conn: values.max_client_conn ?? null,
+      reserve_pool_size: values.reserve_pool_size ?? null,
+      server_idle_timeout: values.server_idle_timeout ?? null,
+      server_lifetime: values.server_lifetime ?? null,
+      query_wait_timeout: values.query_wait_timeout ?? null,
     }
+
+    // 3. Remove the fields that PgBouncerPayload explicitly omits 
+    // (in case the backend rejects the request if they are present)
+    delete (payload as any).pgbouncer_enabled
+    delete (payload as any).pool_mode
 
     updateConfig(payload as any, {
       onSuccess: () => {
@@ -168,6 +183,8 @@ export const ConnectionPooling  = () => {
       },
     })
   }
+
+
 
   const connectionPoolingUnavailable = data?.pool_mode === null
 

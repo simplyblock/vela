@@ -501,14 +501,15 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="inline-flex">
-                    <Button
-                      htmlType="submit"
-                      type="primary"
-                      loading={newBranchLoading}
-                      disabled={isCreateDisabled}
-                    >
-                      Create branch
-                    </Button>
+                  <Button
+                    htmlType="submit"
+                    type="primary"
+                    loading={newBranchLoading}
+                    disabled={isCreateDisabled}
+                    className={isCreateDisabled ? 'border border-destructive' : ''}
+                  >
+                    Create branch
+                  </Button>
                   </div>
                 </TooltipTrigger>
                 {createDisabledReason && (
@@ -611,7 +612,9 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                     <Input_Shadcn_
                       id="name"
                       placeholder="main"
-                      className={`w-full h-9 text-sm ${fieldState.error ? 'border-destructive' : ''}`}
+                      className={`w-full h-9 text-sm ${
+                        fieldState.error || !field.value ? 'border-destructive' : ''
+                      }`}
                       {...field}
                       onChange={(e) => {
                         field.onChange(e)
@@ -730,7 +733,9 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                           type={showPassword ? 'text' : 'password'}
                           autoComplete="new-password"
                           placeholder="Give a strong password"
-                          className={`h-9 pr-10 text-sm ${hasError ? 'border-destructive' : ''}`}
+                          className={`h-9 pr-10 text-sm ${
+                            hasError || !field.value ? 'border-destructive' : ''
+                          }`}
                           {...field}
                           onChange={(event) => {
                             field.onChange(event)

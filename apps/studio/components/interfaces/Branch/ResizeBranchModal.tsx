@@ -42,6 +42,9 @@ type Props = {
   ramUsageBytes: number // RAM usage as bytes (for “usage + 20%” rule)
   triggerClassName?: string
   isDisabled?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
 }
 
 type FormValues = {
@@ -67,9 +70,15 @@ export const BranchResizeModal: React.FC<Props> = ({
   branchMax,
   ramUsageBytes,
   triggerClassName,
-  isDisabled
+  isDisabled,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger,
 }) => {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+
+  const open = controlledOpen ?? internalOpen
+  const setOpen = onOpenChange ?? setInternalOpen
   const formatSliderDisplay = (value: number) => value.toFixed(2)
   const { data: branchMaxima } = useProjectBranchMaximaQuery({ orgRef: orgSlug, projectRef })
   const { data: projectAvailable } = useProjectAvailableCreationResourcesQuery({
@@ -477,11 +486,13 @@ const getEffectiveMin = (rk: ResourceType, s: SliderSpecification): number => {
 
   return (
     <Dialog open={open} onOpenChange={(v) => setOpen(v)}>
+    {!hideTrigger && (
       <DialogTrigger asChild>
         <Button disabled={isDisabled} type="default" className={triggerClassName}>
           Resize branch
         </Button>
       </DialogTrigger>
+    )}
 
       <DialogContent size="xxlarge" className="max-h-[85vh] overflow-y-auto p-0">
         <form onSubmit={onSubmit} className="flex flex-col">

@@ -17,6 +17,9 @@ import {
   SelectTrigger_Shadcn_,
   SelectValue_Shadcn_,
   Slider_Shadcn_,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from 'ui'
 import { useAvailablePostgresVersionsQuery } from 'data/platform/available-postgresql-versions-query'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
@@ -176,7 +179,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
   useEffect(() => {
     if (!sourceBranch) return
     form.setValue('postgresVersion', sourceBranch.database.version)
-  }, [sourceBranch])
+  }, [sourceBranch, form])
 
   const enableStorageService = form.watch('enableStorageService')
   const projectHasStorage = (effectiveLimits?.storage_size?.max ?? 0) > 0
@@ -191,22 +194,33 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
       return spec.max <= 0 || spec.max < spec.min
     })
   }, [effectiveLimits, enableStorageService])
+  // 
+  const createDisabledReason = useMemo(() => {
+    if (newBranchLoading) return 'Creating branch...'
+    if (hasInsufficientResources) {
+      return 'Cannot create branch because there are not enough available resources for the current limits.'
+    }
+    return null
+  }, [newBranchLoading, hasInsufficientResources])
+
+  const isCreateDisabled = !!createDisabledReason
+
   useEffect(() => {
     if (!enableStorageService) form.setValue('resources.storage_size', 0)
-  }, [enableStorageService])
+  }, [enableStorageService, form])
 
   useEffect(() => {
     if (!availablePostgresVersions) return
     const defaultVersion = availablePostgresVersions.find((version) => version.default)?.value
     if (!defaultVersion) return
     form.setValue('postgresVersion', defaultVersion)
-  }, [availablePostgresVersions])
+  }, [availablePostgresVersions, form])
 
   useEffect(() => {
     if (!router.isReady) return
     const { name } = router.query
     if (typeof name === 'string') form.setValue('name', name)
-  }, [router.isReady])
+  }, [router.isReady, router.query, form])
 
   useEffect(() => {
     if (!branch) return
@@ -389,11 +403,16 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
             {(Object.keys(effectiveLimits) as ResourceType[]).map((key) => {
               if (key === 'storage_size' && !projectHasStorage) return null
               const fieldError = (form.formState.errors as any)?.resources?.[key]?.message as
-              | string
-              | undefined
+                | string
+                | undefined
+
               const { label, min, max, step, unit } = effectiveLimits[key]
               const value = form.watch(`resources.${key}`)
-              const enabled = key !== 'storage_size' || enableStorageService
+
+              const storageToggleDisabled = key === 'storage_size' && !enableStorageService
+              const resourceInsufficient = max <= 0 || max < min
+              const enabled = !storageToggleDisabled && !resourceInsufficient
+
               return (
                 <div key={key} className="space-y-2">
                   <div className="flex items-center justify-between text-[12px] leading-none">
@@ -418,9 +437,20 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                   />
                   {fieldError && (
                     <div className="mt-1">
-                      <Label_Shadcn_ className="text-xs text-destructive">{fieldError}</Label_Shadcn_>
+                      <Label_Shadcn_ className="text-xs text-destructive">
+                        {fieldError}
+                      </Label_Shadcn_>
                     </div>
                   )}
+
+                  {resourceInsufficient && (
+                    <div className="mt-1">
+                      <Label_Shadcn_ className="text-xs text-destructive">
+                        Insufficient available {label.toLowerCase()} for this branch
+                      </Label_Shadcn_>
+                    </div>
+                  )}
+
                   {key === 'storage_size' && !enableStorageService && (
                     <div className="mt-2">
                       <Label_Shadcn_ className="text-xs text-muted-foreground">
@@ -435,7 +465,14 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
         </div>
       </div>
     )
-  }, [effectiveLimits, adjustableResources, enableStorageService, hasInsufficientResources, projectHasStorage])
+  }, [
+    effectiveLimits,
+    enableStorageService,
+    hasInsufficientResources,
+    projectHasStorage,
+    form,
+    handleBranchSliderChange,
+  ])
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -460,14 +497,27 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
             </Button>
             <div className="flex items-center space-x-3">
               <p className="text-xs text-foreground-lighter">You can rename your branch later</p>
-              <Button
-                htmlType="submit"
-                type="primary"
-                loading={newBranchLoading}
-                disabled={newBranchLoading || hasInsufficientResources}
-              >
-                Create branch
-              </Button>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="inline-flex">
+                  <Button
+                    htmlType="submit"
+                    type="primary"
+                    loading={newBranchLoading}
+                    disabled={isCreateDisabled}
+                    className={isCreateDisabled ? 'border border-destructive' : ''}
+                  >
+                    Create branch
+                  </Button>
+                  </div>
+                </TooltipTrigger>
+                {createDisabledReason && (
+                  <TooltipContent side="top" align="center">
+                    <span>{createDisabledReason}</span>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
           </div>
         }
@@ -562,7 +612,9 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                     <Input_Shadcn_
                       id="name"
                       placeholder="main"
-                      className={`w-full h-9 text-sm ${fieldState.error ? 'border-destructive' : ''}`}
+                      className={`w-full h-9 text-sm ${
+                        fieldState.error || !field.value ? 'border-destructive' : ''
+                      }`}
                       {...field}
                       onChange={(e) => {
                         field.onChange(e)
@@ -622,8 +674,7 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                 name="postgresVersion"
                 render={({ field }) => {
                   const availableVersions = availablePostgresVersions || []
-                  const defaultVersion =
-                    availableVersions.find((version) => version.default)?.value || ''
+
                   return (
                     <div className="space-y-1">
                       <Label_Shadcn_
@@ -641,13 +692,11 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                           <SelectValue_Shadcn_ placeholder="Select PostgreSQL version" />
                         </SelectTrigger_Shadcn_>
                         <SelectContent_Shadcn_>
-                          {availableVersions.map((version) => {
-                            return (
-                              <SelectItem_Shadcn_ key={version.value} value={version.value}>
-                                {version.label}
-                              </SelectItem_Shadcn_>
-                            )
-                          })}
+                          {availableVersions.map((version) => (
+                            <SelectItem_Shadcn_ key={version.value} value={version.value}>
+                              {version.label}
+                            </SelectItem_Shadcn_>
+                          ))}
                         </SelectContent_Shadcn_>
                       </Select_Shadcn_>
                     </div>
@@ -684,7 +733,9 @@ const NewBranchForm = ({}: NewBranchFormProps) => {
                           type={showPassword ? 'text' : 'password'}
                           autoComplete="new-password"
                           placeholder="Give a strong password"
-                          className={`h-9 pr-10 text-sm ${hasError ? 'border-destructive' : ''}`}
+                          className={`h-9 pr-10 text-sm ${
+                            hasError || !field.value ? 'border-destructive' : ''
+                          }`}
                           {...field}
                           onChange={(event) => {
                             field.onChange(event)

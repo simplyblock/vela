@@ -150,8 +150,20 @@ export const BranchCard = ({
           </div>
 
           <div className="flex flex-col items-end ml-3 shrink-0 space-y-2">
-            <div>
+            <div className="flex items-center gap-1">
               <BranchStatusBadge status={branch.status} />
+
+              <BranchActionsMenu
+                branch={branch}
+                orgSlug={orgSlug}
+                projectRef={projectRef}
+                openAllowed={openAllowed}
+                cloneHref={`/new/${orgSlug}/${projectRef}/${branch.id}?name=Clone%20of%20${branch.name}`}
+                settingsHref={`/org/${orgSlug}/project/${projectRef}/branch/${branch.id}/settings`}
+                onRequestDelete={onRequestDelete}
+                isAbleToDeleteBranches={isAbleToDeleteBranches}
+                isAbleToResizeBranches={isAbleToResizeBranches}
+              />
             </div>
 
             <div>
@@ -174,17 +186,7 @@ export const BranchCard = ({
       <div className="flex items-center gap-2 pt-2">
         {isAbleToRestartBranches && ActionButton}
 
-        <BranchActionsMenu
-          branch={branch}
-          orgSlug={orgSlug}
-          projectRef={projectRef}
-          openAllowed={openAllowed}
-          cloneHref={`/new/${orgSlug}/${projectRef}/${branch.id}?name=Clone%20of%20${branch.name}`}
-          settingsHref={`/org/${orgSlug}/project/${projectRef}/branch/${branch.id}/settings`}
-          onRequestDelete={onRequestDelete}
-          isAbleToDeleteBranches={isAbleToDeleteBranches}
-          isAbleToResizeBranches={isAbleToResizeBranches}
-        />
+
       </div>
 
       <div className="pt-3">

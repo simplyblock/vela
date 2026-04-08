@@ -8,6 +8,7 @@ import BranchStatusBadge from 'components/interfaces/Branch/BranchStatusBadge'
 import BranchEnvBadge from 'components/interfaces/Branch/BranchEnvBadge'
 import { BranchResourceBadge } from 'components/interfaces/Branch/BranchResourceBadge'
 import ResizeBranchModal from 'components/interfaces/Branch/ResizeBranchModal'
+import { BranchActionsMenu } from './BranchActionsMenu'
 
 // You can keep these helpers local to this file – they’re only used for rendering
 const ACTIVE_STATUSES = ['ACTIVE_HEALTHY', 'ACTIVE_UNHEALTHY', 'UNKNOWN']
@@ -163,40 +164,27 @@ export const BranchCard = ({
           </div>
         </div>
 
-        <div className="mt-1">
-          <BranchEnvBadge env={(branch as any).env_type} size="sm" />
+        <div className="mt-1 min-h-[20px]">
+          {branch.env_type && (
+            <BranchEnvBadge env={branch.env_type} size="sm" />
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-2 pt-2">
         {isAbleToRestartBranches && ActionButton}
 
-        {isAbleToDeleteBranches && (
-          <Button
-          size="tiny"
-          type="default"
-          className="text-redA-1100 hover:bg-redA-400"
-          onClick={() => onRequestDelete(branch.id, branch.name ?? branch.id)}
-          disabled={toggling || deleting}
-          aria-label={`Delete branch ${branch.name ?? branch.id}`}
-        >
-          <span className="inline-flex items-center gap-1">
-            <Trash2 size={14} /> Delete
-          </span>
-        </Button>
-        )}
-
-        {isAbleToResizeBranches && (
-          <ResizeBranchModal
-          isDisabled={!openAllowed}
+        <BranchActionsMenu
+          branch={branch}
           orgSlug={orgSlug}
           projectRef={projectRef}
-          branchId={branch.id}
-          branchMax={branch.max_resources}
-          triggerClassName="!ml-auto"
-          ramUsageBytes={branch?.used_resources?.ram_bytes ?? 0}
+          openAllowed={openAllowed}
+          cloneHref={`/new/${orgSlug}/${projectRef}/${branch.id}?name=Clone%20of%20${branch.name}`}
+          settingsHref={`/org/${orgSlug}/project/${projectRef}/branch/${branch.id}/settings`}
+          onRequestDelete={onRequestDelete}
+          isAbleToDeleteBranches={isAbleToDeleteBranches}
+          isAbleToResizeBranches={isAbleToResizeBranches}
         />
-        )}
       </div>
 
       <div className="pt-3">

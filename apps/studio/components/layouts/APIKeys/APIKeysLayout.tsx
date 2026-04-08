@@ -24,7 +24,7 @@ const ApiKeysLayout = ({ children }: PropsWithChildren) => {
     <PageLayout
       title="API Keys"
       subtitle="Configure API keys to securely control access to your project"
-      navigationItems={navigationItems}
+      // navigationItems={navigationItems}
     >
       <ScaffoldContainer className="flex flex-col py-8 gap-8" bottomPadding>
         {children}

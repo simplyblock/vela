@@ -10,18 +10,13 @@ export type PgbouncerConfigurationUpdateVariables = {
   ref: string
   slug: string
   branchId: string
-} & Pick<
-  components['schemas']['UpdatePgbouncerConfigBody'],
-  'default_pool_size' | 'max_client_conn' | 'ignore_startup_parameters'
->
+} & components['schemas']['UpdatePgbouncerConfigBody']
 
 export async function updatePgbouncerConfiguration({
   slug,
   ref,
   branchId,
-  default_pool_size,
-  max_client_conn,
-  ignore_startup_parameters,
+  ...body 
 }: PgbouncerConfigurationUpdateVariables) {
   if (!slug) return console.error('Organization slug is required')
   if (!ref) return console.error('Project ref is required')
@@ -37,11 +32,7 @@ export async function updatePgbouncerConfiguration({
           branch: branchId,
         },
       },
-      body: {
-        default_pool_size,
-        max_client_conn,
-        ignore_startup_parameters,
-      },
+      body,
     }
   )
 

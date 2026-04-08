@@ -485,7 +485,7 @@ const BranchSidebarLinks = () => {
           <SideBarNavLink
             key={`settings-routes-${i}`}
             route={route}
-            active={pathParts.includes("settings")}
+           active={pathParts.includes("settings") && !pathParts.includes("database")}
           />
         ))}
       </SidebarGroup>

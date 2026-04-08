@@ -159,6 +159,7 @@ export const BranchCard = ({
                 projectRef={projectRef}
                 openAllowed={openAllowed}
                 cloneHref={`/new/${orgSlug}/${projectRef}/${branch.id}?name=Clone%20of%20${branch.name}`}
+                logsHref={`/org/${orgSlug}/project/${projectRef}/branch/${branch.id}/logs`}
                 settingsHref={`/org/${orgSlug}/project/${projectRef}/branch/${branch.id}/settings`}
                 onRequestDelete={onRequestDelete}
                 isAbleToDeleteBranches={isAbleToDeleteBranches}

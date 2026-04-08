@@ -1,7 +1,7 @@
 // components/interfaces/Branch/BranchActionsMenu.tsx
 
 import Link from 'next/link'
-import { MoreVertical, Trash2, Copy, Settings, Maximize } from 'lucide-react'
+import { MoreVertical, Trash2, Copy, Settings, Maximize, Terminal } from 'lucide-react'
 import {
   Button,
   DropdownMenu,
@@ -21,6 +21,7 @@ type Props = {
   openAllowed: boolean
 
   cloneHref: string
+  logsHref: string
   settingsHref: string
 
   onRequestDelete: (id: string, name: string) => void
@@ -35,6 +36,7 @@ export const BranchActionsMenu = ({
   projectRef,
   openAllowed,
   cloneHref,
+  logsHref,
   settingsHref,
   onRequestDelete,
   isAbleToResizeBranches = true,
@@ -68,6 +70,12 @@ export const BranchActionsMenu = ({
             <Link href={cloneHref} className="flex items-center gap-2">
                 <Copy size={14} />
                 Clone
+            </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className='cursor-pointer'>
+            <Link href={logsHref} className="flex items-center gap-2">
+                <Terminal size={14} />
+                Logs
             </Link>
             </DropdownMenuItem>
 

@@ -48,13 +48,13 @@ import { components } from 'data/vela/vela-schema'
 import { useOrgAvailableCreationResourcesQuery } from 'data/resource-limits/org-available-creation-resources-query'
 import { useOrganizationLimitsQuery } from 'data/resource-limits/organization-limits-query'
 import { put } from 'data/fetchers'
-import { calculateSliderDefault } from '../../../lib/slider-helpers'
+import { calculateSliderDefault, SliderKey,snapValue } from '../../../lib/slider-helpers'
 
 /* ------------------------------------------------------------------ */
 /* Types / labels                                                     */
 /* ------------------------------------------------------------------ */
 
-type SliderKey = 'vcpu' | 'ram' | 'iops' | 'nvme' | 'storage'
+
 type CreateProjectStep = 1 | 2 | 3
 
 const sliderOrder = ['vcpu', 'ram', 'iops', 'nvme', 'storage'] as const
@@ -631,26 +631,50 @@ const CreateProjectPage: NextPageWithLayout = () => {
   }
 
   // Slider onChange creators (clamp + sync rules)
-  const handlePerBranchChange = (key: SliderKey) => (v: number[]) => {
-    if (!limitConfig) return
-    const cfg = limitConfig[key]!
-    const next = v[0] ?? cfg.min
-    const safe = Math.max(cfg.min, Math.min(next, cfg.max))
-    form.setValue(`perBranchLimits.${key}`, safe, { shouldDirty: true, shouldValidate: false })
-    const projVal = form.getValues(`projectLimits.${key}`)
-    if (safe > projVal) {
-      form.setValue(`projectLimits.${key}`, safe, { shouldDirty: true, shouldValidate: false })
-    }
-  }
+const handlePerBranchChange = (key: SliderKey) => (v: number[]) => {
+  if (!limitConfig) return
+  const cfg = limitConfig[key]!
 
-  const handleProjectChange = (key: SliderKey) => (v: number[]) => {
-    if (!limitConfig) return
-    const cfg = limitConfig[key]!
-    const next = v[0] ?? cfg.min
-    const branchVal = form.getValues(`perBranchLimits.${key}`)
-    const clamped = Math.max(branchVal, Math.max(cfg.min, Math.min(next, cfg.max)))
-    form.setValue(`projectLimits.${key}`, clamped, { shouldDirty: true, shouldValidate: false })
+  let next = v[0] ?? cfg.min
+  next = snapValue(key, next)
+
+  const safe = Math.max(cfg.min, Math.min(next, cfg.max))
+
+  form.setValue(`perBranchLimits.${key}`, safe, {
+    shouldDirty: true,
+    shouldValidate: false,
+  })
+
+  const projVal = form.getValues(`projectLimits.${key}`)
+  if (safe > projVal) {
+    form.setValue(`projectLimits.${key}`, safe, {
+      shouldDirty: true,
+      shouldValidate: false,
+    })
   }
+}
+
+
+const handleProjectChange = (key: SliderKey) => (v: number[]) => {
+  if (!limitConfig) return
+  const cfg = limitConfig[key]!
+
+  let next = v[0] ?? cfg.min
+  next = snapValue(key, next)
+
+  const branchVal = form.getValues(`perBranchLimits.${key}`)
+
+  const clamped = Math.max(
+    branchVal,
+    Math.max(cfg.min, Math.min(next, cfg.max))
+  )
+
+  form.setValue(`projectLimits.${key}`, clamped, {
+    shouldDirty: true,
+    shouldValidate: false,
+  })
+}
+
 
   /* ------------------------------------------------------------------ */
   /* Render                                                              */

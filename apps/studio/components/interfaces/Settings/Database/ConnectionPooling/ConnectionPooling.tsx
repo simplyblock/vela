@@ -148,9 +148,8 @@ export const ConnectionPooling  = () => {
   }
 
   useEffect(() => {
-    if (isSuccess) resetForm()
-  }, [isSuccess])
-
+    if (isSuccess && data) resetForm()
+  }, [data])
     const onSubmit = (values: FormValues) => {
     if (!slug || !ref || !branch || !data) return
 
@@ -179,7 +178,6 @@ export const ConnectionPooling  = () => {
     updateConfig(payload as any, {
       onSuccess: () => {
         toast.success('PgBouncer configuration updated')
-        resetForm()
       },
     })
   }

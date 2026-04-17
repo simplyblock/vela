@@ -9,7 +9,7 @@ Usage:
   # Global dev deployment:
   env $(scripts/remote-env | xargs) podman compose -f docker/docker-compose.remote.yml up --build
 """
-import argparse, json, secrets, subprocess, sys, urllib.parse, urllib.request
+import argparse, json, os, secrets, subprocess, sys, urllib.parse, urllib.request
 
 
 def kc_request(url, token=None, method="GET", data=None):
@@ -28,6 +28,8 @@ def main():
     parser.add_argument("pr", nargs="?", help="PR number, e.g. 663 (omit for global dev deployment)")
     parser.add_argument("--realm", default="vela")
     parser.add_argument("--admin-user", default=None, help="Keycloak admin username (default: read from configmap)")
+    parser.add_argument("--kubeconfig", default=None, help="Path to kubeconfig file (default: kubectl default)")
+    parser.add_argument("--public-url", default=os.environ.get("NEXTAUTH_URL", "http://localhost:3000"), help="Public URL of the studio (default: $NEXTAUTH_URL or http://localhost:3000)")
     args = parser.parse_args()
 
     if args.pr:
@@ -39,9 +41,13 @@ def main():
     kc    = f"https://{host}/auth"
     realm = args.realm
 
+    kubectl = ["kubectl"]
+    if args.kubeconfig:
+        kubectl += ["--kubeconfig", args.kubeconfig]
+
     print(f"Fetching admin credentials from {ns} ...", file=sys.stderr)
     cm_data = json.loads(subprocess.check_output(
-        ["kubectl", "-n", ns, "get", "configmap", "vela-auth-config",
+        kubectl + ["-n", ns, "get", "configmap", "vela-auth-config",
          "-o", "jsonpath={.data}"],
         text=True,
     ))
@@ -67,8 +73,9 @@ def main():
     client_uuid = clients[0]["id"]
     client = kc_request(f"{kc}/admin/realms/{realm}/clients/{client_uuid}", token)
 
-    redirect_uri = "http://localhost:3000/*"
-    web_origin   = "http://localhost:3000"
+    public_url   = args.public_url.rstrip("/")
+    redirect_uri = f"{public_url}/*"
+    web_origin   = public_url
     if redirect_uri not in client.get("redirectUris", []):
         client["redirectUris"] = sorted(set(client.get("redirectUris", []) + [redirect_uri]))
         client["webOrigins"]   = sorted(set(client.get("webOrigins",   []) + [web_origin]))
@@ -92,6 +99,7 @@ def main():
     print(f"VELA_REMOTE_HOST={host}")
     print(f"KEYCLOAK_CLIENT_SECRET={client_secret}")
     print(f"NEXTAUTH_SECRET={nextauth_secret}")
+    print(f"NEXTAUTH_URL={public_url}")
 
 
 if __name__ == "__main__":
